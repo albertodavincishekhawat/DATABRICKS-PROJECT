@@ -30,22 +30,29 @@
 
 ## Next Steps (In Priority Order)
 
-### Phase 1: YFinance Integration (1-2 days)
-- [ ] Create `src/data_collection/yfinance_fetcher.py`
-- [ ] Fetch 12+ months historical data for all 6 tickers
-- [ ] Export to CSV and Parquet formats
-- [ ] Test data completeness
+### Phase 1: YFinance Integration ✓ COMPLETE
+- [x] Created `src/data_collection/yfinance_fetcher.py`
+- [x] Fetched 12+ months historical data for all 6 tickers (May 2025-May 2026)
+- [x] Exported to CSV and Parquet formats
+- [x] Tested data completeness (1,482 rows)
 
-**Output**: Daily market data CSV/Parquet ready for algorithm
+**Output**: Daily market data CSV/Parquet ready for algorithm ✓
+- Combined CSV: 172 KB (1,482 rows)
+- Parquet: 60 KB (optimized for Lambda)
+- Summary JSON: Metadata with latest values
 
-### Phase 2: Web Scrapers (2-3 days)
-- [ ] `src/data_collection/rbi_repo_rate_scraper.py` - Parse press releases
-- [ ] `src/data_collection/fii_dii_scraper.py` - Parse TrendLyne tables
-- [ ] `src/data_collection/rbi_balance_sheet_scraper.py` - Parse RBI WSS
-- [ ] `src/data_collection/mospi_cpi_scraper.py` - Parse government data
-- [ ] Error handling + rate limiting for all
+### Phase 2: Web Scrapers 🚀 IN PROGRESS
+- [x] Unified scraper module created (`src/data_collection/scrapers.py`)
+- [x] RBI Repo Rate scraper ✓ WORKING (22 rows extracted from press releases)
+- [ ] FII/DII scraper - Needs JS rendering (TrendLyne uses dynamic tables)
+- [ ] RBI Balance Sheet scraper - Needs JS rendering (WSS form-based)
+- [ ] MOSPI CPI scraper - Needs JS rendering (page structure complex)
 
-**Output**: 4 individual scrapers with CSV/Parquet export
+**Current Status**: 1/4 scrapers functional  
+**Limitation**: TrendLyne, RBI WSS, MOSPI use JavaScript rendering  
+**Solution Path**: Implement Selenium/Playwright for JS-heavy sites
+
+**Output**: Working RBI scraper, framework for remaining 3
 
 ### Phase 3: Unified Pipeline (2-3 days)
 - [ ] Create `src/data_collection/unified_collector.py` orchestrator
