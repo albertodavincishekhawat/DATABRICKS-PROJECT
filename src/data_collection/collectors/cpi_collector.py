@@ -39,7 +39,31 @@ class CPICollector(BaseCollector):
         self._fetch_data()
 
     def _fetch_data(self):
-        """Fetch CPI data from FRED."""
+        """Fetch CPI data from combined CSV or FRED."""
+        from pathlib import Path
+
+        # Try combined CSV first (FRED + user-provided data)
+        combined_csv = 'src/data_collection/input/cpi_combined.csv'
+        if Path(combined_csv).exists():
+            try:
+                self.log_status(f"Loading from combined CSV...")
+                df = pd.read_csv(combined_csv)
+                df['Date'] = pd.to_datetime(df['Date'])
+
+                # Remove rows with NaN CPI (waiting for user to fill in)
+                df = df.dropna(subset=['CPI'])
+
+                # Index by year-month for quick lookup
+                df['YearMonth'] = df['Date'].dt.to_period('M')
+                self.data = df.set_index('YearMonth')
+
+                logger.info(f"[CPI] Loaded {len(self.data)} data points from combined CSV ({self.data.index[0]} to {self.data.index[-1]})")
+                return
+
+            except Exception as e:
+                logger.warning(f"[CPI] Error loading combined CSV: {str(e)[:100]}")
+
+        # Fall back to FRED if combined CSV not available
         if not FRED_AVAILABLE:
             logger.warning("[CPI] pandas-datareader not installed")
             return
@@ -62,7 +86,7 @@ class CPICollector(BaseCollector):
             df['YearMonth'] = df['Date'].dt.to_period('M')
             self.data = df.set_index('YearMonth')
 
-            logger.info(f"[CPI] Loaded {len(self.data)} data points ({self.data.index[0]} to {self.data.index[-1]})")
+            logger.info(f"[CPI] Loaded {len(self.data)} data points from FRED ({self.data.index[0]} to {self.data.index[-1]})")
 
         except Exception as e:
             logger.error(f"[CPI] Error fetching from FRED: {str(e)[:100]}")
