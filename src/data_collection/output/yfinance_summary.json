@@ -1,0 +1,81 @@
+{
+  "fetch_time": "2026-05-25T14:44:35.173368",
+  "date_range": {
+    "start": "2025-05-30",
+    "end": "2026-05-25"
+  },
+  "tickers": {
+    "USDINR": {
+      "symbol": "USDINR=X",
+      "description": "USD/INR Exchange Rate",
+      "required_for": "R1 (Monetary System Shift)",
+      "rows_fetched": 254,
+      "date_range": {
+        "start": "2025-05-30",
+        "end": "2026-05-22"
+      },
+      "latest_close": 96.17389678955078,
+      "latest_date": "2026-05-22"
+    },
+    "NIFTY50": {
+      "symbol": "^NSEI",
+      "description": "Nifty 50 Index",
+      "required_for": "Quarterly Check, R7 (Institutional Selling)",
+      "rows_fetched": 242,
+      "date_range": {
+        "start": "2025-05-30",
+        "end": "2026-05-22"
+      },
+      "latest_close": 23719.30078125,
+      "latest_date": "2026-05-22"
+    },
+    "GOLD_INR": {
+      "symbol": "GOLD",
+      "description": "Gold Price (INR) - Physical",
+      "required_for": "Quarterly Check",
+      "rows_fetched": 247,
+      "date_range": {
+        "start": "2025-05-30",
+        "end": "2026-05-22"
+      },
+      "latest_close": 43.400001525878906,
+      "latest_date": "2026-05-22"
+    },
+    "GOLD_USD": {
+      "symbol": "GC=F",
+      "description": "Gold Price (USD/Troy Oz)",
+      "required_for": "Reference for international gold price",
+      "rows_fetched": 248,
+      "date_range": {
+        "start": "2025-05-30",
+        "end": "2026-05-22"
+      },
+      "latest_close": 4521.0,
+      "latest_date": "2026-05-22"
+    },
+    "BRENT_CRUDE": {
+      "symbol": "BZ=F",
+      "description": "Brent Crude Oil Futures",
+      "required_for": "R3 (Commodity/Oil Shock)",
+      "rows_fetched": 248,
+      "date_range": {
+        "start": "2025-05-30",
+        "end": "2026-05-22"
+      },
+      "latest_close": 103.54000091552734,
+      "latest_date": "2026-05-22"
+    },
+    "NIFTY_BEES": {
+      "symbol": "NIFTYBEES.NS",
+      "description": "Nifty BeES ETF",
+      "required_for": "Portfolio Rebalancing (NAV)",
+      "rows_fetched": 243,
+      "date_range": {
+        "start": "2025-05-30",
+        "end": "2026-05-22"
+      },
+      "latest_close": 269.1000061035156,
+      "latest_date": "2026-05-22"
+    }
+  }
+}

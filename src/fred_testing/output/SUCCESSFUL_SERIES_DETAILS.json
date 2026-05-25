@@ -1,0 +1,41 @@
+[
+  {
+    "Data_Name": "US_CPI",
+    "Series_ID": "CPIAUCSL",
+    "Title": "Consumer Price Index for All Urban Consumers: All Items in U.S. City Average",
+    "Frequency": "Monthly",
+    "Frequency_Short": "M",
+    "Units": "Index 1982-1984=100",
+    "Data_Start_Date": "1947-01-01",
+    "Data_End_Date": "2026-04-01",
+    "Last_Updated": "2026-05-12 08:03:57-05",
+    "Total_Observations": 952,
+    "API_Status": "\u2713 Active"
+  },
+  {
+    "Data_Name": "Federal_Funds_Rate",
+    "Series_ID": "FEDFUNDS",
+    "Title": "Federal Funds Effective Rate",
+    "Frequency": "Monthly",
+    "Frequency_Short": "M",
+    "Units": "Percent",
+    "Data_Start_Date": "1954-07-01",
+    "Data_End_Date": "2026-04-01",
+    "Last_Updated": "2026-05-01 15:20:39-05",
+    "Total_Observations": 862,
+    "API_Status": "\u2713 Active"
+  },
+  {
+    "Data_Name": "USD_EUR_Rate",
+    "Series_ID": "DEXUSEU",
+    "Title": "U.S. Dollars to Euro Spot Exchange Rate",
+    "Frequency": "Daily",
+    "Frequency_Short": "D",
+    "Units": "U.S. Dollars to One Euro",
+    "Data_Start_Date": "1999-01-04",
+    "Data_End_Date": "2026-05-15",
+    "Last_Updated": "2026-05-18 15:16:46-05",
+    "Total_Observations": 7140,
+    "API_Status": "\u2713 Active"
+  }
+]

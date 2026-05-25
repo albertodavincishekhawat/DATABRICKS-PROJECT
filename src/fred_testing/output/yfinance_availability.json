@@ -1,0 +1,92 @@
+[
+  {
+    "status": "AVAILABLE",
+    "ticker": "USDINR=X",
+    "data_name": "USD_INR",
+    "latest_date": "2026-05-22",
+    "latest_value": 96.17389678955078,
+    "rows_available": 6,
+    "currency": "INR",
+    "market_cap": "N/A"
+  },
+  {
+    "status": "AVAILABLE",
+    "ticker": "^NSEI",
+    "data_name": "Nifty_50",
+    "latest_date": "2026-05-22",
+    "latest_value": 23719.30078125,
+    "rows_available": 6,
+    "currency": "INR",
+    "market_cap": "N/A"
+  },
+  {
+    "status": "AVAILABLE",
+    "ticker": "GOLD",
+    "data_name": "Gold_INR",
+    "latest_date": "2026-05-22",
+    "latest_value": 43.400001525878906,
+    "rows_available": 6,
+    "currency": "USD",
+    "market_cap": 1258789888
+  },
+  {
+    "status": "AVAILABLE",
+    "ticker": "GC=F",
+    "data_name": "Gold_USD",
+    "latest_date": "2026-05-22",
+    "latest_value": 4521.0,
+    "rows_available": 6,
+    "currency": "USD",
+    "market_cap": "N/A"
+  },
+  {
+    "status": "AVAILABLE",
+    "ticker": "BZ=F",
+    "data_name": "Brent_Crude",
+    "latest_date": "2026-05-22",
+    "latest_value": 103.54000091552734,
+    "rows_available": 6,
+    "currency": "USD",
+    "market_cap": "N/A"
+  },
+  {
+    "status": "NOT_FOUND",
+    "ticker": "SBIN",
+    "data_name": "Gold_ETF_SBI",
+    "error": "No data returned from yfinance"
+  },
+  {
+    "status": "AVAILABLE",
+    "ticker": "NIFTYBEES.NS",
+    "data_name": "Nifty_BeES",
+    "latest_date": "2026-05-22",
+    "latest_value": 269.1000061035156,
+    "rows_available": 6,
+    "currency": "INR",
+    "market_cap": "N/A"
+  },
+  {
+    "status": "NOT_ON_YFINANCE",
+    "ticker": null,
+    "data_name": "RBI_Repo_Rate",
+    "error": "Not available on yfinance (India/NSE specific or system data)"
+  },
+  {
+    "status": "NOT_ON_YFINANCE",
+    "ticker": null,
+    "data_name": "FII_DII",
+    "error": "Not available on yfinance (India/NSE specific or system data)"
+  },
+  {
+    "status": "NOT_ON_YFINANCE",
+    "ticker": null,
+    "data_name": "RBI_Balance_Sheet",
+    "error": "Not available on yfinance (India/NSE specific or system data)"
+  },
+  {
+    "status": "NOT_ON_YFINANCE",
+    "ticker": null,
+    "data_name": "India_CPI",
+    "error": "Not available on yfinance (India/NSE specific or system data)"
+  }
+]

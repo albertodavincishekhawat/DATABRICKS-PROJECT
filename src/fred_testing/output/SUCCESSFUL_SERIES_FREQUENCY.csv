@@ -1,0 +1,4 @@
+Data_Name,Series_ID,Title,Frequency,Frequency_Short,Units,Data_Start_Date,Data_End_Date,Last_Updated,Total_Observations,API_Status
+US_CPI,CPIAUCSL,Consumer Price Index for All Urban Consumers: All Items in U.S. City Average,Monthly,M,Index 1982-1984=100,1947-01-01,2026-04-01,2026-05-12 08:03:57-05,952,✓ Active
+Federal_Funds_Rate,FEDFUNDS,Federal Funds Effective Rate,Monthly,M,Percent,1954-07-01,2026-04-01,2026-05-01 15:20:39-05,862,✓ Active
+USD_EUR_Rate,DEXUSEU,U.S. Dollars to Euro Spot Exchange Rate,Daily,D,U.S. Dollars to One Euro,1999-01-04,2026-05-15,2026-05-18 15:16:46-05,7140,✓ Active
