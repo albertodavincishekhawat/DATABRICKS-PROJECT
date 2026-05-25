@@ -46,6 +46,7 @@ class RBIBalanceSheetCollector(BaseCollector):
         # Try paths in order
         paths_to_try = [
             self.csv_path,
+            'src/data_collection/input/rbi_balance_sheet_dbie.csv',  # DBIE scraper output
             'src/data_collection/input/rbi_balance_sheet_historical.csv',
             'src/data_collection/input/rbi_balance_sheet_real.csv',
             'src/data_collection/input/rbi_balance_sheet_manual.csv',
