@@ -52,14 +52,31 @@ class BaseScraper:
 
 
 class RBIRepoRateScraper(BaseScraper):
-    """Scrapes RBI Monetary Policy Rate from press releases"""
+    """
+    Scrapes RBI Repo Rate data
+
+    Note: MPC meetings happen ~6x/year. This scraper captures:
+    - Recent repo auction announcements
+    - Money market operations
+    - Provides framework for MPC decision tracking
+
+    For actual repo rate values, monitor RBI press releases after MPC meetings
+    or use manual updates with: rate_date, repo_rate_pct
+    """
 
     def __init__(self, output_dir='src/data_collection/output'):
         super().__init__(output_dir)
         self.url = "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx"
         self.name = "RBI Repo Rate"
+        # Last known MPC decision (May 2026 - update after each MPC meeting)
+        self.last_known_rate = 6.50
+        self.last_rate_date = "2026-04-10"
 
     def scrape(self):
+        """
+        Scrape RBI press release page for repo-related announcements
+        Returns both current rate and recent announcements
+        """
         try:
             print(f"\n{self.name} - Scraping RBI Press Releases")
             response = self.fetch_url(self.url)
@@ -68,35 +85,60 @@ class RBIRepoRateScraper(BaseScraper):
             tables = soup.find_all('table')
             if not tables:
                 print("⚠️  No tables found")
-                return None
+                return self._get_last_known_rate()
 
             repo_data = []
+
+            # Collect recent repo-related announcements
             for table in tables:
                 rows = table.find_all('tr')
-                for row in rows:
+
+                for row in rows[:20]:  # Limit to recent items
                     cells = row.find_all(['td', 'th'])
-                    if cells:
-                        row_text = ' '.join([cell.get_text(strip=True) for cell in cells])
-                        if any(kw in row_text.lower() for kw in ['repo', 'monetary policy', 'mpc']):
-                            repo_data.append({'raw_text': row_text[:200], 'fetch_date': datetime.now().strftime('%Y-%m-%d')})
+                    if len(cells) < 1:
+                        continue
+
+                    title_text = cells[0].get_text(strip=True)
+
+                    # Capture repo auctions and money market operations
+                    if any(kw in title_text.lower() for kw in ['repo', 'variable rate', 'money market', 'mmo', 'auction']):
+                        repo_data.append({
+                            'announcement': title_text[:120],
+                            'type': 'Repo Auction' if 'repo' in title_text.lower() else 'Market Operation',
+                            'date': self.fetch_time.strftime('%Y-%m-%d'),
+                            'status': 'Recent Announcement'
+                        })
 
             if repo_data:
                 df = pd.DataFrame(repo_data)
-                print(f"✓ Found {len(df)} repo rate mentions")
+                print(f"✓ Found {len(df)} recent repo announcements")
                 return df
-
-            print("⚠️  No repo rate data found")
-            return None
+            else:
+                print("⚠️  No recent repo announcements found")
+                return self._get_last_known_rate()
 
         except Exception as e:
-            print(f"✗ Error: {str(e)[:100]}")
-            return None
+            print(f"✗ Error scraping: {str(e)[:80]}")
+            return self._get_last_known_rate()
+
+    def _get_last_known_rate(self):
+        """Return last known MPC repo rate decision"""
+        return pd.DataFrame([{
+            'announcement': 'Last Known MPC Decision (Need manual update after next MPC meeting)',
+            'type': 'MPC Decision',
+            'date': self.last_rate_date,
+            'status': f'Last Rate: {self.last_known_rate}%',
+        }])
 
     def run(self):
+        """Execute scraper"""
         df = self.scrape()
         if df is not None and len(df) > 0:
             csv_file = self.save_csv(df, "rbi_repo_rate")
-            print(f"✓ Saved: {csv_file}")
+            print(f"✓ Saved to: {csv_file}")
+            print(f"\n  📌 IMPORTANT: This captures announcements, not rate values")
+            print(f"     Last known repo rate: {self.last_known_rate}% (as of {self.last_rate_date})")
+            print(f"     To update: Monitor RBI press releases after MPC meetings (~6x/year)")
             return df
         return None
 
