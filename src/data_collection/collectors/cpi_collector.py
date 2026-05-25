@@ -121,8 +121,9 @@ class CPICollector(BaseCollector):
             search_period = year_month - months_back
 
             if search_period in self.data.index:
-                # Return last day of the found month
-                return datetime(search_period.year, search_period.month, 1) + timedelta(days=32)
+                # Return the last day of the found month (within the month, not after)
+                last_day = pd.Period(search_period, freq='M').days_in_month
+                return datetime(search_period.year, search_period.month, last_day)
 
         return None
 

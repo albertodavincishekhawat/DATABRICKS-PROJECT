@@ -37,7 +37,24 @@ class FIIDIICollector(BaseCollector):
         self._fetch_data()
 
     def _fetch_data(self):
-        """Fetch FII/DII data from NSE."""
+        """Fetch FII/DII data from CSV, NSE, or fallback."""
+        from pathlib import Path
+
+        # Try CSV first (monthly aggregated data)
+        csv_path = 'src/data_collection/input/fii_dii_monthly.csv'
+        if Path(csv_path).exists():
+            try:
+                self.log_status(f"Loading from CSV...")
+                df = pd.read_csv(csv_path)
+                df['Date'] = pd.to_datetime(df['Date'])
+                df = df.sort_values('Date')
+                self.data = df
+                logger.info(f"[FII_DII] Loaded {len(self.data)} monthly records from CSV")
+                return
+            except Exception as e:
+                logger.warning(f"[FII_DII] Error loading CSV: {str(e)[:80]}")
+
+        # Fall back to NSE
         if not NSEFIN_AVAILABLE:
             logger.warning("[FII_DII] nsefin not installed")
             return
