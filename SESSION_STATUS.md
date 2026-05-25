@@ -54,13 +54,30 @@
 
 **Output**: Working RBI scraper, framework for remaining 3
 
-### Phase 3: Unified Pipeline (2-3 days)
+### Phase 2B: Solve Data Blockers (1-2 hours research + 4-6 hours implementation)
+**Status**: ⏸ BLOCKED - 3/10 sources unavailable
+- [ ] Research APIs for India CPI, RBI Balance Sheet, FII/DII
+- [ ] Decision: Use API → Selenium → Manual updates
+- [ ] Implement remaining 3 web scrapers (FII/DII, Balance Sheet, CPI)
+
+**Critical**: Phase 3 cannot start without all 10 sources. Algorithm rules have dependencies:
+- **R1** (Monetary Shift): Repo Rate ✓ + USD/INR ✓ → Ready
+- **R2** (Real Rate Shock): Repo Rate ✓ + India CPI ✗ → **BLOCKED by CPI**
+- **R3** (Oil Shock): Brent Crude ✓ → Ready
+- **R5** (QE Regime): RBI Balance Sheet ✗ → **BLOCKED by Balance Sheet**
+- **R7** (FII/DII Signal): FII/DII ✗ → **BLOCKED by FII/DII**
+
+**Output**: All 10 sources working, ready to test all 5 rules
+
+### Phase 3: Unified Pipeline (2-3 days) 🚫 BLOCKED UNTIL PHASE 2B COMPLETE
 - [ ] Create `src/data_collection/unified_collector.py` orchestrator
 - [ ] Frequency-aware scheduling (daily, weekly, monthly, 6x/year)
 - [ ] Data validation layer
 - [ ] Collect 12+ months backtesting data
+- [ ] Run decision algorithm on historical data (validate all 5 rules trigger correctly)
 
-**Output**: Ready for algorithm backtesting
+**Prerequisite**: All 10 data sources must be working first
+**Output**: Ready for algorithm backtesting with complete data
 
 ### Phase 4: Lambda Deployment (2-3 days)
 - [ ] Package all components for AWS Lambda

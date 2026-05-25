@@ -1,8 +1,14 @@
 # Data Collection Strategy - Decision Algorithm Implementation
 
 **Last Updated**: May 25, 2026  
-**Status**: ✓ All 10 data sources identified and validated  
-**Next Phase**: Build unified pipeline combining YFinance + web scrapers
+**Current Status**: 
+- ✓ Phase 1 (YFinance) COMPLETE - 6 sources live, 1,482 rows extracted
+- 🚀 Phase 2A (RBI Scraper) IN PROGRESS - 1/4 scrapers working
+- ⏸ Phase 2B (JS Blockers) BLOCKED - 3/4 scrapers need Selenium/API research
+- 🚫 Phase 3 BLOCKED - Cannot start until all 10 sources ready
+  
+**Critical Blocker**: Algorithm rules need specific data sources. Missing data blocks testing of R2, R5, R7 (3 of 5 rules)
+**Next Action**: Phase 2B API research (1-2 hours) to solve TrendLyne, RBI WSS, MOSPI blockers
 
 ---
 
@@ -132,59 +138,92 @@ def fetch_yfinance_data(start_date='2025-01-01'):
 
 ## Implementation Timeline
 
-### Week 1: YFinance Integration
-- [x] Test YFinance availability (COMPLETED)
-- [ ] Build unified YFinance fetch function
-- [ ] Create CSV/Parquet exporters
-- [ ] Test 12-month historical data retrieval
-- [ ] Lambda packaging and testing
+**Estimated Total**: 2-3 weeks (10-15 business days)
 
-**Time**: 1-2 days  
-**Output**: `src/data_collection/yfinance_fetcher.py`
+### Phase 1: YFinance Integration ✓ COMPLETE
+- [x] Test YFinance availability 
+- [x] Build unified YFinance fetch function
+- [x] Create CSV/Parquet exporters
+- [x] Test 12-month historical data retrieval
+- [x] Lambda packaging and testing
+
+**Completed**: May 25, 2026  
+**Output**: `src/data_collection/yfinance_fetcher.py` - 1,482 rows extracted (May 2025-May 2026)
+- 6 YFinance sources: USDINR=X, ^NSEI, GOLD, GC=F, BZ=F, NIFTYBEES.NS
+- Formats: CSV, Parquet, JSON
+- Ready for Phase 3 testing: ✓ YES
 
 ---
 
-### Week 2: Web Scrapers
-- [ ] Build RBI Repo Rate scraper (1-2 hours)
-- [ ] Build FII/DII scraper using TrendLyne (2-3 hours)
+### Phase 2A: RBI Repo Rate Scraper 🚀 IN PROGRESS
+- [x] Build RBI Repo Rate scraper (1-2 hours)
+- [x] Parse RBI press releases
+- [x] Extract recent repo announcements + last known rate
+- [x] Create framework for manual MPC updates
+
+**Completed**: May 25, 2026  
+**Output**: `src/data_collection/scrapers.py` - 22 rows extracted, last known rate: 6.50% (April 10, 2026)
+- Ready for Phase 3 testing: ✓ YES
+
+---
+
+### Phase 2B: Solve JavaScript-Rendering Blockers ⏸ BLOCKED
+**Critical**: This must complete before Phase 3 can start
+
+**Blockers**:
+- **FII/DII (TrendLyne)**: JavaScript renders tables client-side - static HTML scraping returns no data
+- **RBI Balance Sheet (WSS)**: Form-based - requires dropdown selection before data appears
+- **MOSPI CPI**: Complex page structure - data may be in PDFs or dynamic content
+
+**Investigation Required** (1-2 hours):
+- [ ] Research if APIs available (MOSPI, RBI, TrendLyne public APIs)
+- [ ] Check for alternative data sources
+- [ ] Decide implementation path: API → Selenium → Manual updates
+
+**Implementation** (4-6 hours if Selenium needed):
+- [ ] Build FII/DII scraper (2-3 hours using TrendLyne API or Selenium)
 - [ ] Build RBI Balance Sheet scraper (1-2 hours)
 - [ ] Build India CPI scraper (1-2 hours)
-- [ ] Rate limiting + error handling for all scrapers
-- [ ] Test with historical data
 
-**Time**: 2-3 days  
-**Output**: 
-- `src/data_collection/rbi_repo_rate_scraper.py`
-- `src/data_collection/fii_dii_scraper.py`
-- `src/data_collection/rbi_balance_sheet_scraper.py`
-- `src/data_collection/mospi_cpi_scraper.py`
+**Data Requirements for Phase 3**:
+- **R2 (Real Rate Shock Rule)**: Needs India CPI → CPI scraper REQUIRED
+- **R5 (QE Regime Rule)**: Needs RBI Balance Sheet → Balance Sheet scraper REQUIRED
+- **R7 (FII/DII Signal Rule)**: Needs FII/DII Activity → FII/DII scraper REQUIRED
+
+**Time**: 1-2 hours research + 4-6 hours implementation  
+**Output**: 3 additional working scrapers, all 10 sources live
 
 ---
 
-### Week 3: Unified Pipeline + Testing
+### Phase 3: Unified Pipeline + Algorithm Testing 🚫 BLOCKED UNTIL PHASE 2B COMPLETE
+**Prerequisite**: All 10 data sources must be working
+
 - [ ] Create unified `data_collector.py` combining all sources
 - [ ] Implement frequency-aware scheduling (daily, weekly, monthly, 6x/year)
 - [ ] Add error handling and retry logic
 - [ ] CSV and Parquet export functions
 - [ ] Validation layer (data completeness, freshness)
-- [ ] Backtesting with 12+ months historical data
+- [ ] **Run decision algorithm on 12+ months historical data**
+- [ ] Validate all 5 rules (R1, R2, R3, R5, R7) trigger correctly
 
-**Time**: 2-3 days  
+**Time**: 2-3 days (after Phase 2B complete)  
 **Output**:
 - `src/data_collection/unified_collector.py`
 - `src/data_collection/data_validator.py`
-- Historical data CSV files for backtesting
+- Historical data CSV files for all 10 sources
+- Backtesting results showing all 5 rules can execute
 
 ---
 
-### Week 4: Lambda Deployment
+### Phase 4: Lambda Deployment
 - [ ] Package all scrapers for AWS Lambda
-- [ ] Set up CloudWatch triggers (daily, weekly, monthly)
+- [ ] Set up CloudWatch triggers (daily, weekly, monthly, 6x/year)
 - [ ] S3 output configuration
 - [ ] Monitoring and alerting
 - [ ] Documentation for deployment
 
-**Time**: 2-3 days
+**Time**: 2-3 days  
+**Prerequisite**: Phase 3 complete with validated algorithm behavior
 
 ---
 
@@ -350,17 +389,57 @@ When resuming this project:
 
 ## Success Criteria
 
+### Phase 1 ✓ COMPLETE
 - [x] All 10 data sources identified
 - [x] All sources tested for accessibility
 - [x] Scrapability assessment complete
-- [ ] YFinance unified fetcher built
-- [ ] 4 custom scrapers implemented
+- [x] YFinance unified fetcher built (6/6 sources)
+- [x] 12+ months historical data collected (1,482 rows)
+
+### Phase 2A ✓ COMPLETE
+- [x] RBI Repo Rate scraper working (1/4)
+- [x] 22 rows extracted from RBI press releases
+- [x] Manual update framework documented
+
+### Phase 2B ⏸ BLOCKED (Requires Action)
+- [ ] API research for CPI, RBI Balance Sheet, FII/DII (1-2 hours)
+- [ ] Decision: API vs Selenium vs Manual updates
+- [ ] 3 remaining custom scrapers implemented (FII/DII, Balance Sheet, CPI)
+- [ ] All 10 data sources working
+
+### Phase 3 🚫 BLOCKED UNTIL PHASE 2B COMPLETE
 - [ ] Unified pipeline tested
-- [ ] 12+ months backtesting data collected
+- [ ] 12+ months backtesting data collected (all 10 sources)
 - [ ] Decision algorithm tested against real data
+- [ ] All 5 rules validated: R1 ✓, R2 ✗, R3 ✓, R5 ✗, R7 ✗
+  - R1: ✓ (has Repo Rate + USD/INR)
+  - R2: ✗ (needs India CPI - Phase 2B)
+  - R3: ✓ (has Brent Crude)
+  - R5: ✗ (needs RBI Balance Sheet - Phase 2B)
+  - R7: ✗ (needs FII/DII - Phase 2B)
+
+### Phase 4 ⏸ PENDING (After Phase 3)
 - [ ] Lambda deployment ready
+- [ ] CloudWatch triggers configured
+- [ ] S3 Parquet output working
+- [ ] Production monitoring active
 
 ---
 
-**Status**: Ready to proceed with Phase 1 (YFinance integration) in next session.  
-**Estimated total time**: 1-2 weeks for complete implementation + testing.
+## Critical Next Action
+
+**Phase 2B must complete before Phase 3 can start.** The decision algorithm cannot be fully tested without:
+1. India CPI (needed for R2 - Real Rate Shock)
+2. RBI Balance Sheet (needed for R5 - QE Regime)
+3. FII/DII Activity (needed for R7 - FII/DII Signal)
+
+**Recommended approach**:
+1. Spend 1-2 hours researching if public APIs exist for these 3 sources
+2. If APIs found: integrate directly (fastest path)
+3. If APIs not found: implement Selenium for JavaScript rendering (4-6 hours)
+4. Then proceed to Phase 3 with complete data set
+
+---
+
+**Current Status**: Phase 2A complete, Phase 2B research needed.  
+**Estimated remaining time**: 6-10 hours (API research + implementation)
