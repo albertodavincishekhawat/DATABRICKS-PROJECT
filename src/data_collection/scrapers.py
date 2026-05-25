@@ -204,41 +204,82 @@ class FIIDIIScraper(BaseScraper):
 
 
 class RBIBalanceSheetScraper(BaseScraper):
-    """Scrapes RBI Balance Sheet from WSS"""
+    """Fetch RBI Balance Sheet from DBIE (Phase 2B: Manual + Future Selenium)
 
-    def __init__(self, output_dir='src/data_collection/output'):
+    DBIE platform has NO public API - requires manual CSV download
+    URL: https://data.rbi.org.in/DBIE/
+
+    Data collection strategy:
+    1. Manual CSV download from DBIE (weekly updates, usually Fridays)
+    2. Place CSV file in src/data_collection/input/rbi_balance_sheet_manual.csv
+    3. Scraper reads and processes the file
+    4. Future: Implement Selenium for automated form interaction (3-4 hours)
+
+    For now: Graceful fallback to sample data for Phase 3 testing
+    """
+
+    def __init__(self, output_dir='src/data_collection/output', manual_csv_path=None):
         super().__init__(output_dir)
-        self.url = "https://www.rbi.org.in/scripts/WSSView.aspx"
         self.name = "RBI Balance Sheet"
+        self.url = "https://data.rbi.org.in/DBIE/"
+        self.manual_csv_path = manual_csv_path or 'src/data_collection/input/rbi_balance_sheet_manual.csv'
+
+    def get_sample_data(self):
+        """Returns sample balance sheet data for testing Phase 3"""
+        return pd.DataFrame([
+            {'Date': '2026-05-23', 'Total_Assets': 615234.56, 'FCA': 289123.45, 'Notes_Circulation': 78456.78},
+            {'Date': '2026-05-16', 'Total_Assets': 614123.45, 'FCA': 287234.56, 'Notes_Circulation': 77345.67},
+            {'Date': '2026-05-09', 'Total_Assets': 613012.34, 'FCA': 285345.67, 'Notes_Circulation': 76234.56},
+            {'Date': '2026-05-02', 'Total_Assets': 611901.23, 'FCA': 283456.78, 'Notes_Circulation': 75123.45},
+        ])
+
+    def load_manual_csv(self):
+        """Load manually downloaded CSV from DBIE"""
+        try:
+            if Path(self.manual_csv_path).exists():
+                df = pd.read_csv(self.manual_csv_path)
+                print(f"  ✓ Loaded manual CSV from {self.manual_csv_path}")
+                return df
+            else:
+                print(f"  ℹ️  No manual CSV found at {self.manual_csv_path}")
+                return None
+        except Exception as e:
+            print(f"  Error reading manual CSV: {str(e)[:50]}")
+            return None
+
+    def scrape_via_selenium(self):
+        """Placeholder for future Selenium implementation
+
+        To implement:
+        1. pip install selenium
+        2. Download ChromeDriver
+        3. Navigate to DBIE form
+        4. Select date range and data series
+        5. Submit and scrape resulting tables
+
+        Estimated effort: 3-4 hours
+        """
+        print(f"  ℹ️  Selenium automation not implemented yet (estimated 3-4 hours)")
+        return None
 
     def scrape(self):
-        try:
-            print(f"\n{self.name} - Scraping RBI WSS")
-            response = self.fetch_url(self.url)
-            soup = BeautifulSoup(response.content, 'html.parser')
+        print(f"\n{self.name} - Fetching from DBIE")
 
-            tables = soup.find_all('table')
-            for table in tables:
-                try:
-                    df = pd.read_html(str(table))[0]
-                    header_text = ' '.join([str(c).lower() for c in df.columns])
-                    if any(kw in header_text for kw in ['assets', 'liabilities', 'balance']):
-                        df['fetch_date'] = datetime.now().strftime('%Y-%m-%d')
-                        print(f"✓ Extracted {len(df)} rows")
-                        return df
-                except:
-                    continue
+        df = self.load_manual_csv()
 
-            print("⚠️  No balance sheet tables found")
-            return None
+        if df is None:
+            print(f"  Using sample data for Phase 3 testing")
+            df = self.get_sample_data()
 
-        except Exception as e:
-            print(f"✗ Error: {str(e)[:100]}")
-            return None
+        if df is not None and len(df) > 0:
+            return df
+
+        return None
 
     def run(self):
         df = self.scrape()
         if df is not None and len(df) > 0:
+            df['fetch_date'] = datetime.now().strftime('%Y-%m-%d')
             csv_file = self.save_csv(df, "rbi_balance_sheet")
             print(f"✓ Saved: {csv_file}")
             return df
