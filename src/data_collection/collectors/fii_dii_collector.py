@@ -37,22 +37,31 @@ class FIIDIICollector(BaseCollector):
         self._fetch_data()
 
     def _fetch_data(self):
-        """Fetch FII/DII data from CSV, NSE, or fallback."""
+        """Fetch FII/DII data from NSE/NSDL CSV, or fallback."""
         from pathlib import Path
 
-        # Try CSV first (monthly aggregated data)
-        csv_path = 'src/data_collection/input/fii_dii_monthly.csv'
-        if Path(csv_path).exists():
-            try:
-                self.log_status(f"Loading from CSV...")
-                df = pd.read_csv(csv_path)
-                df['Date'] = pd.to_datetime(df['Date'])
-                df = df.sort_values('Date')
-                self.data = df
-                logger.info(f"[FII_DII] Loaded {len(self.data)} monthly records from CSV")
-                return
-            except Exception as e:
-                logger.warning(f"[FII_DII] Error loading CSV: {str(e)[:80]}")
+        # Try NSE/NSDL CSV files first (real data from official sources)
+        csv_paths = [
+            'src/data_collection/input/fii_dii_nse.csv',      # NSE official
+            'src/data_collection/input/fii_dii_nsdl.csv',     # NSDL official
+            'src/data_collection/input/fii_dii_manual.csv',   # User manual
+            'src/data_collection/input/fii_dii_monthly.csv',  # Legacy/synthetic
+        ]
+
+        for csv_path in csv_paths:
+            if Path(csv_path).exists():
+                try:
+                    self.log_status(f"Loading from {Path(csv_path).name}...")
+                    df = pd.read_csv(csv_path)
+                    df['Date'] = pd.to_datetime(df['Date'])
+                    df = df.sort_values('Date')
+                    self.data = df
+                    source = "NSE" if "nse" in csv_path.lower() else "NSDL" if "nsdl" in csv_path.lower() else "USER"
+                    logger.info(f"[FII_DII] Loaded {len(self.data)} monthly records from {source}")
+                    return
+                except Exception as e:
+                    logger.debug(f"[FII_DII] Error loading {csv_path}: {str(e)[:60]}")
+                    continue
 
         # Fall back to NSE
         if not NSEFIN_AVAILABLE:

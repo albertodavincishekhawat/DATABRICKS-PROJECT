@@ -136,7 +136,8 @@ class CPICollector(BaseCollector):
 
         try:
             if year_month in self.data.index:
-                return float(self.data.loc[year_month, 'CPI'].values[0])
+                value = self.data.loc[year_month, 'CPI']
+                return float(value) if value is not None else None
         except (KeyError, IndexError, Exception):
             return None
 
