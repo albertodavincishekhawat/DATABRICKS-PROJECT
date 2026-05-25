@@ -83,7 +83,8 @@ class YFinanceCollector(BaseCollector):
         """Check if data exists on a specific date."""
         if self.data is None or self.data.empty:
             return False
-        return date.date() in self.data.index
+        import pandas as pd
+        return pd.Timestamp(date.date()) in self.data.index
 
     def find_data_on_date(self, date: datetime) -> Optional[datetime]:
         """
@@ -94,10 +95,12 @@ class YFinanceCollector(BaseCollector):
         if self.data is None or self.data.empty:
             return None
 
+        import pandas as pd
         # Search backward up to 5 days for last trading day
         for offset in range(0, 6):
             candidate = date - timedelta(days=offset)
-            if candidate.date() in self.data.index:
+            ts = pd.Timestamp(candidate.date())
+            if ts in self.data.index:
                 return candidate
 
         return None
@@ -108,8 +111,10 @@ class YFinanceCollector(BaseCollector):
             return None
 
         try:
-            if data_date.date() in self.data.index:
-                return float(self.data.loc[data_date.date(), 'Close'])
+            import pandas as pd
+            ts = pd.Timestamp(data_date.date())
+            if ts in self.data.index:
+                return float(self.data.loc[ts, 'Close'])
         except (KeyError, Exception):
             return None
 

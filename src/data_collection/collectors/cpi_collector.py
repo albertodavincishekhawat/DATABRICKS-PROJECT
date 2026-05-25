@@ -84,22 +84,21 @@ class CPICollector(BaseCollector):
         """
         Find CPI data for this month.
 
-        Returns the last day of the month if data exists.
+        CPI is published monthly with ~1-2 month lag.
+        Search backward up to 3 months for latest available CPI.
         """
         if self.data is None or self.data.empty:
             return None
 
         year_month = pd.Period(date, freq='M')
 
-        # CPI for a month is available after ~15th of next month
-        # So we search current month and up to 2 months back
-        for months_back in range(0, 3):
+        # Search current month and up to 3 months back
+        for months_back in range(0, 4):
             search_period = year_month - months_back
 
             if search_period in self.data.index:
-                # Return last day of the search month
+                # Return last day of the found month
                 return datetime(search_period.year, search_period.month, 1) + timedelta(days=32)
-                # Note: Adding 32 days and taking month-end works for any month
 
         return None
 
