@@ -1,222 +1,101 @@
 """
-FII/DII Collector
+FII Collector
 
-Collects Foreign Institutional Investor (FII) and Domestic Institutional Investor (DII)
-daily flows from NSE and aggregates to monthly net flows.
+Loads monthly FPI Equity net flows from the NSDL scraper output CSV.
+Data is already aggregated to monthly totals — no daily summing needed.
+
+Source : src/data_collection/input/fii_nsdl_monthly.csv
+         (produced by nsdl_fpi_scraper.py)
+Columns: Date (YYYY-MM-DD, last day of month), FPI_Equity (Rs. Crore, signed)
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
+from pathlib import Path
 from typing import Optional, Dict, Any
 import pandas as pd
 import logging
 from .base_collector import BaseCollector
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-try:
-    import nsefin
-    NSEFIN_AVAILABLE = True
-except ImportError:
-    NSEFIN_AVAILABLE = False
+NSDL_CSV = Path('src/data_collection/input/fii_nsdl_monthly.csv')
 
 
 class FIIDIICollector(BaseCollector):
     """
-    Collect daily FII/DII flows from NSE.
+    Loads monthly FII (FPI Equity) net flows from NSDL CSV.
 
-    Frequency: Daily (trading days)
-    Aggregation: Sum all daily flows for the month (net FII/DII)
-    Source: NSE via nsefin library
+    Frequency : Monthly
+    Source    : fii_nsdl_monthly.csv (NSDL FPI Yearwise report)
+    Value     : FPI_Equity — net equity investment in Rs. Crore (signed)
     """
 
     def __init__(self):
-        """Initialize FII/DII collector."""
-        super().__init__('FII_DII', frequency='daily')
-        self.data = None
-        self._fetch_data()
+        super().__init__('FII', frequency='monthly')
+        self.data: Optional[pd.DataFrame] = None
+        self._load()
 
-    def _fetch_data(self):
-        """Fetch FII/DII data from NSE/NSDL CSV, or fallback."""
-        from pathlib import Path
-
-        # Try NSE/NSDL CSV files first (real data from official sources)
-        csv_paths = [
-            'src/data_collection/input/fii_dii_nse.csv',      # NSE official
-            'src/data_collection/input/fii_dii_nsdl.csv',     # NSDL official
-            'src/data_collection/input/fii_dii_manual.csv',   # User manual
-            'src/data_collection/input/fii_dii_monthly.csv',  # Legacy/synthetic
-        ]
-
-        for csv_path in csv_paths:
-            if Path(csv_path).exists():
-                try:
-                    self.log_status(f"Loading from {Path(csv_path).name}...")
-                    df = pd.read_csv(csv_path)
-                    df['Date'] = pd.to_datetime(df['Date'])
-                    df = df.sort_values('Date')
-                    self.data = df
-                    source = "NSE" if "nse" in csv_path.lower() else "NSDL" if "nsdl" in csv_path.lower() else "USER"
-                    logger.info(f"[FII_DII] Loaded {len(self.data)} monthly records from {source}")
-                    return
-                except Exception as e:
-                    logger.debug(f"[FII_DII] Error loading {csv_path}: {str(e)[:60]}")
-                    continue
-
-        # Fall back to NSE
-        if not NSEFIN_AVAILABLE:
-            logger.warning("[FII_DII] nsefin not installed")
+    def _load(self):
+        if not NSDL_CSV.exists():
+            logger.error(f"[FII] CSV not found: {NSDL_CSV} — run nsdl_fpi_scraper.py first")
             return
-
         try:
-            self.log_status("Fetching from NSE...")
-            nse = nsefin.NSEClient()
-            df = nse.get_fii_dii_activity()
-
-            if df is not None and len(df) > 0:
-                # Ensure Date column is datetime
-                if 'Date' in df.columns:
-                    df['Date'] = pd.to_datetime(df['Date'])
-                    df = df.sort_values('Date')
-
-                    self.data = df
-                    logger.info(f"[FII_DII] Loaded {len(self.data)} daily records")
-                else:
-                    logger.warning("[FII_DII] Date column not found in NSE data")
-
+            df = pd.read_csv(NSDL_CSV, parse_dates=['Date'])
+            df = df.sort_values('Date').reset_index(drop=True)
+            self.data = df
+            logger.info(f"[FII] Loaded {len(df)} months from {NSDL_CSV.name} "
+                        f"({df['Date'].iloc[0].date()} → {df['Date'].iloc[-1].date()})")
         except Exception as e:
-            logger.error(f"[FII_DII] Error fetching from NSE: {str(e)[:100]}")
-            self.data = None
+            logger.error(f"[FII] Failed to load {NSDL_CSV}: {e}")
 
     def has_data_on_date(self, date: datetime) -> bool:
-        """Check if FII/DII data exists on a specific date."""
         if self.data is None or self.data.empty:
             return False
-
-        # Check if we have any data for this month
-        year_month = pd.Period(date, freq='M')
-        month_data = self.data[
-            (pd.to_datetime(self.data['Date']).dt.to_period('M') == year_month)
-        ]
-        return len(month_data) > 0
+        period = pd.Period(date, freq='M')
+        return (self.data['Date'].dt.to_period('M') == period).any()
 
     def find_data_on_date(self, date: datetime) -> Optional[datetime]:
-        """
-        Find last trading day of this month with FII/DII data.
-
-        For monthly aggregation, we search backward to find the last day
-        of the month that has data.
-        """
         if self.data is None or self.data.empty:
             return None
-
-        # Get year-month
-        year_month = pd.Period(date, freq='M')
-
-        # Find all data for this month
-        month_data = self.data[
-            (pd.to_datetime(self.data['Date']).dt.to_period('M') == year_month)
-        ]
-
-        if len(month_data) > 0:
-            # Return last date in the month
-            last_date = month_data['Date'].max()
-            return last_date if pd.notna(last_date) else None
-
-        return None
+        period = pd.Period(date, freq='M')
+        row = self.data[self.data['Date'].dt.to_period('M') == period]
+        if row.empty:
+            return None
+        return row['Date'].iloc[0].to_pydatetime()
 
     def get_value(self, data_date: datetime) -> Optional[float]:
-        """
-        Get net FII flow for a specific date.
-
-        This is not typically used for monthly aggregation (which sums).
-        """
         if self.data is None or self.data.empty:
             return None
+        period = pd.Period(data_date, freq='M')
+        row = self.data[self.data['Date'].dt.to_period('M') == period]
+        if row.empty:
+            return None
+        val = row['FPI_Equity'].iloc[0]
+        return float(val) if pd.notna(val) else None
 
-        try:
-            date_data = self.data[
-                pd.to_datetime(self.data['Date']).dt.date == data_date.date()
-            ]
-
-            if len(date_data) > 0:
-                # Try to find net flow column
-                for col in ['FII Net', 'FII_Net', 'DII Net', 'DII_Net']:
-                    if col in date_data.columns:
-                        return float(date_data[col].iloc[0])
-
-        except Exception:
-            pass
-
-        return None
-
-    def aggregate_to_month(
-        self,
-        month: str,
-        sync_date: datetime
-    ) -> Dict[str, Any]:
+    def aggregate_to_month(self, month: str, sync_date: datetime) -> Dict[str, Any]:
         """
-        Aggregate to monthly net FII/DII flows.
-
-        Sum all daily flows for the month.
+        Return the NSDL monthly FPI Equity net flow for the given month.
 
         Args:
-            month: Month string (YYYY-MM)
-            sync_date: The synchronized date for this month
-
-        Returns:
-            Dict with {value, data_quality, source_date}
+            month     : 'YYYY-MM'
+            sync_date : synchronized date for this month (unused — data is pre-aggregated)
         """
         if self.data is None or self.data.empty:
-            return {
-                'value': None,
-                'data_quality': 'MISSING',
-                'source_date': None
-            }
+            return {'value': None, 'data_quality': 'MISSING', 'source_date': None}
 
-        # Parse month
         year, month_num = map(int, month.split('-'))
-        year_month = pd.Period(f'{year}-{month_num:02d}', freq='M')
+        period = pd.Period(f'{year}-{month_num:02d}', freq='M')
+        row = self.data[self.data['Date'].dt.to_period('M') == period]
 
-        # Get all data for this month
-        month_data = self.data[
-            (pd.to_datetime(self.data['Date']).dt.to_period('M') == year_month)
-        ]
+        if row.empty:
+            return {'value': None, 'data_quality': 'MISSING', 'source_date': None}
 
-        if len(month_data) == 0:
-            return {
-                'value': None,
-                'data_quality': 'MISSING',
-                'source_date': None
-            }
+        val = row['FPI_Equity'].iloc[0]
+        source_date = row['Date'].iloc[0].strftime('%Y-%m-%d')
 
-        # Sum all daily flows
-        total_fii = 0
-        total_dii = 0
-        last_date = None
-
-        for _, row in month_data.iterrows():
-            try:
-                # Try to find FII net column
-                for col in ['FII Net', 'FII_Net', 'FII Equity']:
-                    if col in row and pd.notna(row[col]):
-                        total_fii += float(row[col])
-                        break
-
-                # Try to find DII net column
-                for col in ['DII Net', 'DII_Net']:
-                    if col in row and pd.notna(row[col]):
-                        total_dii += float(row[col])
-                        break
-
-                last_date = row['Date']
-
-            except Exception:
-                continue
-
-        # Use total FII as the primary value
         return {
-            'value': total_fii,
-            'data_quality': 'OK' if last_date else 'PARTIAL',
-            'source_date': last_date.strftime('%Y-%m-%d') if last_date else None
+            'value': float(val) if pd.notna(val) else None,
+            'data_quality': 'OK' if pd.notna(val) else 'PARTIAL',
+            'source_date': source_date,
         }
