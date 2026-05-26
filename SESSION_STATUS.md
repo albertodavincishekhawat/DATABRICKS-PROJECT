@@ -1,12 +1,12 @@
 # Current Session Status
 
 **Last Updated**: May 26, 2026
-**Branch**: `ravi-UAT` (1 commit ahead of `origin/ravi-UAT`)
+**Branch**: `ravi-UAT` (synced with `origin/ravi-UAT`)
 **Latest commits**:
+- `4fe04f1` — Remove DII clause from R7 — FII-only selling signal
+- `1651918` — Update SESSION_STATUS.md to reflect completed CPI and RBI scrapers
 - `ed359b6` — Replace FRED/hardcoded CPI with real MOSPI data via rateinflation.com
 - `85579da` — Replace synthetic RBI balance sheet with real WSS scraper data
-- `54249a5` — Document session state and add 3-pipeline architecture to requirements
-- `dee07ad` — Add NSDL FPI scraper for real historical FII data
 
 ---
 
@@ -14,7 +14,7 @@
 
 User mandate: **"no synthetic data, get real data from free sources"**
 
-All data sources except DII are now real. Three scrapers built this session.
+All data sources are now real. DII removed from the algorithm entirely — R7 is now FII-only. Three scrapers built this session.
 
 ---
 
@@ -31,7 +31,7 @@ All data sources except DII are now real. Three scrapers built this session.
 | 7 | CPI | ✅ REAL | MOSPI via rateinflation.com | 160 months Jan 2013–Apr 2026, base 2024=100, verified vs PIB press releases |
 | 8 | Repo Rate | ✅ REAL + forward-fill | RBI MPC decisions | 39 real + legitimate forward-fill |
 | 9 | FII (FPI Equity) | ✅ REAL | NSDL ASP.NET scraper | 77 months Jan 2020–May 2026 |
-| 10 | **DII** | ⚠️ SYNTHETIC | `fii_dii_groww_fetcher.py` | Only remaining synthetic source |
+| 10 | ~~DII~~ | ✅ REMOVED | — | R7 redesigned as FII-only signal; DII dropped from algo |
 | 11 | RBI Balance Sheet | ✅ REAL | RBI WSS XLSX scraper | 331 weekly / 77 monthly, Jan 2020–May 2026 |
 
 ---
@@ -84,17 +84,12 @@ Sources investigated for fresh India CPI (Apr 2025+):
 
 ## Up Next (Priority Order)
 
-1. **DII data** — only remaining synthetic source. Investigate:
-   - BSE Historical FII/DII Summary page
-   - AMFI monthly mutual fund flows (publicly available)
-   - Trendlyne backend JSON API
-2. **Wire FII collector** — update `fii_dii_collector.py` to read from `fii_nsdl_monthly.csv`
-3. **Re-run monthly aggregation** — verify all months complete with real data
-4. **Implement 3 pipeline types** from requirements doc:
+1. **Wire FII collector** — update `fii_dii_collector.py` to read from `fii_nsdl_monthly.csv`
+2. **Re-run monthly aggregation** — verify all months complete with real data
+3. **Implement 3 pipeline types** from requirements doc:
    - `python -m src.data_collection.refresh --param <name>`
    - `python -m src.data_collection.refresh --all`
    - `python -m src.data_collection.upsert --param <name>`
-5. **Push branch** to `origin/ravi-UAT`
 
 ---
 
@@ -127,6 +122,11 @@ python3 -m src.data_collection.collectors.rbi_wss_scraper
 - `src/data_collection/input/rbi_wss_weekly.csv` (331 rows)
 - `src/data_collection/input/rbi_wss_monthly.csv` (77 rows)
 - `src/data_collection/input/cpi_combined.csv` (160 rows — replaces FRED+hardcoded)
+
+**Algorithm / doc changes** (commit `4fe04f1`):
+- `docs/plan/Algorithms.md` — R7 rewritten as FII-only; DII removed from trigger, yellow alert, exit conditions, weekly decision tree, data sources table
+- `docs/plan/Implementation_Requirements.md` — DII removed from data feed spec, DB schema (`fii_dii_activity` → `fii_activity`, `dii_net` column dropped), calculations list, validation, contingency table
+- `docs/plan/Decision_Algo_DB_Project_May2026.docx` — same changes applied to all R7 tables
 
 **Stale docs (safe to delete)**:
 - `PHASE2_SCRAPER_STATUS.md`
