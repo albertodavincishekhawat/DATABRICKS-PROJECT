@@ -1,211 +1,167 @@
 # Current Session Status
 
-**Last Updated**: May 25, 2026  
-**Branch**: ravi-UAT  
-**Status**: ✓ All data sources validated, ready for pipeline implementation
+**Last Updated**: May 26, 2026
+**Branch**: `ravi-UAT` (pushed to `origin/ravi-UAT`)
+**Latest commit**: `dee07ad` — Add NSDL FPI scraper for real historical FII data
 
 ---
 
-## What's Complete ✓
+## TL;DR — Where We Are Right Now
 
-1. **Identified all 10 required data sources**
-   - 6 via YFinance (USD/INR, Nifty 50, Gold INR, Gold USD, Brent Crude, Nifty BeES)
-   - 4 via web scraping (RBI Repo Rate, FII/DII via TrendLyne, RBI Balance Sheet, India CPI)
+User mandate: **"no synthetic data, get real data from free sources"**
 
-2. **Validated accessibility & scrapability**
-   - All sources return 200 OK status (except NSE URL which we replaced with TrendLyne)
-   - HTML table-based, no complex JavaScript rendering needed
-   - Estimated dev time: 5-7 hours for all 4 scrapers
+We are systematically replacing every synthetic/hardcoded data source in the pipeline with a real scraper from the canonical official source. NSDL is done (real FII). RBI Balance Sheet is in progress (scraper found the data, download blocked). DII and CPI-recent are still synthetic.
 
-3. **Solved data availability issues**
-   - ✓ FRED Brent Crude API error → Solved with YFinance (BZ=F)
-   - ✓ NSE FII/DII 404 → Solved with TrendLyne alternative
-   - ✓ Gold data → Confirmed physical gold price (GOLD ticker, not ETF)
-
-4. **Created comprehensive documentation**
-   - `docs/DATA_COLLECTION_STRATEGY.md` - Complete implementation plan with timeline
-   - `memory/project_data_collection.md` - Quick reference for future sessions
+**Currently working on**: RBI Balance Sheet scraper — see "In Progress" section below.
 
 ---
 
-## Next Steps (In Priority Order)
+## Data Source Status (10 parameters)
 
-### Phase 1: YFinance Integration ✓ COMPLETE
-- [x] Created `src/data_collection/yfinance_fetcher.py`
-- [x] Fetched 12+ months historical data for all 6 tickers (May 2025-May 2026)
-- [x] Exported to CSV and Parquet formats
-- [x] Tested data completeness (1,482 rows)
-
-**Output**: Daily market data CSV/Parquet ready for algorithm ✓
-- Combined CSV: 172 KB (1,482 rows)
-- Parquet: 60 KB (optimized for Lambda)
-- Summary JSON: Metadata with latest values
-
-### Phase 2: Web Scrapers ✓ COMPLETE
-- [x] Unified scraper module created (`src/data_collection/scrapers.py`)
-- [x] RBI Repo Rate scraper ✓ WORKING (22 rows - HTML parsing)
-- [x] FII/DII scraper ✓ WORKING (3 rows - nsefin API with fallback)
-- [x] RBI Balance Sheet scraper ✓ WORKING (4 rows - manual CSV + fallback)
-- [x] MOSPI CPI scraper ✓ WORKING (4 rows - MOSPI API with HTML/sample fallback)
-
-**Status**: 4/4 scrapers functional (33 rows test data)
-**Data Sources**: All APIs integrated where available
-- MOSPI CPI: Official API at https://api.mospi.gov.in (requires token)
-- FII/DII: nsefin library (Python, no auth)
-- RBI Balance Sheet: Manual CSV from DBIE (weekly) + future Selenium option
-- RBI Repo Rate: HTML parsing of press releases
-
-**Output**: Complete scraper suite with 10/10 data sources ready
-
-### Phase 2B: Solve Data Blockers ✓ COMPLETE
-**Status**: ✓ All 10 sources now available
-- [x] Research APIs for India CPI, RBI Balance Sheet, FII/DII (COMPLETED)
-- [x] Decision: Use API → Selenium → Manual updates (COMPLETED)
-- [x] Implement remaining 3 web scrapers (FII/DII, Balance Sheet, CPI) (COMPLETED)
-
-**Result**: Phase 3 UNBLOCKED. All 5 algorithm rules can now be tested:
-- **R1** (Monetary Shift): Repo Rate ✓ + USD/INR ✓ → Ready
-- **R2** (Real Rate Shock): Repo Rate ✓ + India CPI ✓ → Ready
-- **R3** (Oil Shock): Brent Crude ✓ → Ready
-- **R5** (QE Regime): RBI Balance Sheet ✓ → Ready
-- **R7** (FII/DII Signal): FII/DII ✓ → Ready
-
-**Output**: All 10 sources working, 5 algorithm rules testable, ready to start Phase 3
-
-### Phase 3: Unified Pipeline (2-3 days) 🚀 READY TO START
-- [ ] Create `src/data_collection/unified_collector.py` orchestrator
-- [ ] Frequency-aware scheduling (daily, weekly, monthly, 6x/year)
-- [ ] Data validation layer
-- [ ] Collect 12+ months backtesting data (combine YFinance + scrapers)
-- [ ] Run decision algorithm on historical data (validate all 5 rules trigger correctly)
-
-**Status**: ✓ UNBLOCKED - All 10 sources ready
-**Next Steps**:
-1. Create unified pipeline combining Phase 1 (YFinance) + Phase 2 (scrapers)
-2. Implement frequency-aware data fetching
-3. Run algorithm backtests against 12+ months of data
-4. Validate all 5 rules (R1, R2, R3, R5, R7) trigger correctly
-
-**Output**: Backtesting complete, algorithm ready for production
-
-### Phase 4: Lambda Deployment (2-3 days)
-- [ ] Package all components for AWS Lambda
-- [ ] Set up CloudWatch triggers
-- [ ] S3 Parquet output configuration
-- [ ] Monitoring and alerting
-
-**Output**: Production-ready automated data collection
+| # | Parameter | Status | Source | Notes |
+|---|-----------|--------|--------|-------|
+| 1 | NIFTY50 | ✅ REAL | YFinance | Live daily |
+| 2 | USDINR | ✅ REAL | YFinance | Live daily |
+| 3 | Gold INR | ✅ REAL | YFinance | Live daily |
+| 4 | Gold USD | ✅ REAL | YFinance | Live daily |
+| 5 | Brent Crude | ✅ REAL | YFinance | Live daily |
+| 6 | NiftyBees | ✅ REAL | YFinance | Live daily |
+| 7 | CPI (Jan 2020 – Mar 2025) | ✅ REAL | FRED API | 63 months |
+| 8 | **CPI (Apr 2025 – Apr 2026)** | ⚠️ HARDCODED | `cpi_mospi_fetcher.py` | 13 months hardcoded "known published values" — needs real MOSPI/data.gov.in scrape |
+| 9 | Repo Rate | ✅ REAL + forward-fill | RBI MPC decisions | 39 real + legitimate forward-fill (rate constant between MPCs) |
+| 10 | **FII (FPI Equity)** | ✅ REAL (NEW) | NSDL ASP.NET scraper | 77 months from official NSDL — committed `dee07ad` |
+| 11 | **DII** | ⚠️ SYNTHETIC | `fii_dii_groww_fetcher.py` | Hardcoded approximations — NSDL has no DII (FPI = foreign only) |
+| 12 | **RBI Balance Sheet** | ⚠️ SYNTHETIC | `rbi_dbie_scraper.py` | 330 weeks synthetic — DBIE scraper failed previously, RBI WSS scraper now in progress |
 
 ---
 
-## Key Files to Reference
+## Recent Wins (Today's Session)
 
-| File | Purpose | Status |
-|------|---------|--------|
-| `docs/DATA_COLLECTION_STRATEGY.md` | Complete implementation plan (timeline, architecture, next steps) | ✓ CREATED |
-| `memory/project_data_collection.md` | Quick reference for future sessions | ✓ CREATED |
-| `src/scraping_tests/check_scrapability.py` | Validates all 4 sources accessible | ✓ TESTED |
-| `src/fred_testing/test_yfinance.py` | Validates 6 YFinance tickers | ✓ TESTED |
-| `docs/plan/Algorithms.md` | Decision rules R1-R7 specification | ✓ EXISTS |
-| `docs/plan/Implementation_Requirements.md` | Database schema + architecture | ✓ EXISTS |
+1. **Real FII data via NSDL** — `src/data_collection/collectors/nsdl_fpi_scraper.py`
+   - Uses ASP.NET VIEWSTATE postback to NSDL's Yearwise report
+   - 77 months: 2020-01 to 2026-05
+   - Verified against published values: March 2020 COVID crash = -₹61,973 Cr (exact match)
+   - Output: `src/data_collection/input/fii_nsdl_monthly.csv`
+   - Commit: `dee07ad`
+
+2. **CPI aggregation bug fix** — `src/data_collection/collectors/cpi_collector.py`
+   - `get_value()` was calling `.values[0]` on a numpy scalar → caught by except → returned None
+   - All 76 CPI months were silently returning MISSING despite data being loaded
+   - Commit: `be4aac6`
+
+3. **Pipeline architecture added to requirements** — `docs/plan/Implementation_Requirements.md`
+   - Three pipeline types defined: per-parameter full refresh, global full refresh, per-parameter monthly upsert
+   - Section added before "Processing Requirements"
+   - **Not yet committed** — needs commit on next session
 
 ---
 
-## Critical Technical Details
+## In Progress — RBI Balance Sheet Scraper
 
-### YFinance Tickers (All Daily)
-```python
-USDINR=X  # USD/INR exchange rate
-^NSEI     # Nifty 50 index
-GOLD      # Gold price in INR (physical, not ETF)
-GC=F      # Gold price in USD
-BZ=F      # Brent Crude futures
-NIFTYBEES.NS  # Nifty BeES ETF
-```
+**Goal**: Replace synthetic 330-week RBI balance sheet data with real weekly Weekly Statistical Supplement (WSS) data from `rbi.org.in`.
 
-### Scraper URLs (Verified 200 OK)
-```
-RBI Repo Rate: https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx
-FII/DII: https://trendlyne.com/macro-data/fii-dii/month/snapshot-month/
-RBI Balance Sheet: https://www.rbi.org.in/scripts/WSSView.aspx
-India CPI: https://mospi.gov.in/consumer-price-index
-```
+### What's been discovered
 
-### Data Update Frequencies
-- **YFinance**: Daily (all 6 sources)
-- **RBI Repo Rate**: ~6x/year (after MPC meetings)
-- **FII/DII**: Daily
-- **RBI Balance Sheet**: Weekly (usually Fridays)
-- **India CPI**: Monthly
+- RBI WSS portal at `https://www.rbi.org.in/Scripts/BS_ViewWss.aspx` is ASP.NET WebForms (same pattern as NSDL)
+- POST with `__VIEWSTATE` + form fields `ddlYear`, `ddlMonth`, `ddlSection=1` (Reserve Bank of India), `btnGo=Go` returns a page listing **all** historical XLSX/PDF download links (regardless of year/month filter — returns 476 total)
+- Parsed 331 unique XLSX URLs covering **2020-01-03 to 2026-05-22** (every Friday)
+- URL pattern: `https://rbidocs.rbi.org.in/rdocs/Wss/DOCs/1T_DDMMYYYY{hash}.XLSX`
+- `1T_` = Table 1 (RBI Liabilities and Assets — exactly what we need)
 
-### Dependencies
+### What's blocking
+
+- Downloading individual XLSX files from `rbidocs.rbi.org.in` keeps getting **TLS connection reset** (ConnectionResetError errno 54)
+- Both `requests` (Python) and `curl` fail
+- Likely needs: session cookies from the parent page, slower request rate, or different TLS cipher
+- Last attempted URL: `https://rbidocs.rbi.org.in/rdocs/Wss/DOCs/1T_2205202684F8791434164E6BB0FB00645143FF32.XLSX`
+
+### Next steps on RBI
+
+1. Try downloading inside the same `requests.Session()` that already visited `BS_ViewWss.aspx` (cookies may be required)
+2. Add `Referer` header explicitly to `rbi.org.in`
+3. Try `httpx` with HTTP/2 instead of `requests`
+4. If still blocked, try fetching from `data.rbi.org.in` (DBIE — different host)
+5. Once one XLSX downloads, parse with `pd.read_excel` to find the right cell for "Total Liabilities/Assets"
+6. Loop over 331 dates, aggregate to monthly (last Friday of each month)
+
+---
+
+## Up Next (Priority Order)
+
+1. **Finish RBI Balance Sheet** scraper (resolve TLS issue → loop downloads → aggregate to monthly)
+2. **DII data** — investigate sources:
+   - BSE Historical FII Summary: `https://www.bseindia.com/markets/Derivatives/DeriReports/FIISummaryHistorical.aspx` (got HTTP 301 — needs redirect handling)
+   - AMFI monthly mutual fund flows (publicly available, monthly aggregates)
+   - Moneycontrol historical archive
+   - Trendlyne backend JSON API
+3. **CPI Apr 2025+ real data**:
+   - Option A: Register free `data.gov.in` API key (requires user action — 5 min signup at https://www.data.gov.in/help/how-use-datasets-apis)
+   - Option B: MOSPI's CPI portal at `https://cpi.mospi.gov.in/` (got HTTP 302 — needs redirect)
+   - Option C: World Bank API (annual only, not monthly)
+4. **Wire real sources into collectors** — once all three above are real, update:
+   - `fii_dii_collector.py` to read from new NSDL CSV
+   - `rbi_balance_sheet_collector.py` to read from new RBI WSS CSV
+   - `cpi_collector.py` to merge FRED + real MOSPI (no hardcoded values)
+5. **Re-run monthly aggregation** and verify 76/76 still complete with all-real data
+6. **Implement the 3 pipeline types** from requirements:
+   - `python -m src.data_collection.refresh --param <name>` (per-parameter full refresh)
+   - `python -m src.data_collection.refresh --all` (global full refresh)
+   - `python -m src.data_collection.upsert --param <name>` (monthly incremental upsert)
+7. **Commit the requirements doc update** (uncommitted right now)
+
+---
+
+## Key Technical Patterns Discovered
+
+- **ASP.NET WebForms scraping**: NSDL and RBI both use this. The recipe:
+  1. GET initial page, parse `__VIEWSTATE`, `__VIEWSTATEGENERATOR`, `__EVENTVALIDATION` from hidden inputs
+  2. POST back with those fields + form fields + `__EVENTTARGET` (dropdown name) or button name
+  3. Use a `requests.Session()` to maintain cookies between GET and POST
+  4. Set `Referer` header to the GET URL
+
+- **`pd.read_html(StringIO(html))`**: After ASP.NET postback, the response is HTML with tables — `pandas.read_html` extracts them. Multi-level columns need flattening: `' | '.join(str(c) for c in col if 'Unnamed' not in str(c))`.
+
+- **NSE blocking**: NSE archives (`nsearchives.nseindia.com`) return 503 from Akamai for bare requests. `nse_fiidii()` from `nsepython` works for current day only, ignores date parameter.
+
+---
+
+## Installed Dependencies (Today)
+
 ```
-yfinance>=0.2.0
-beautifulsoup4>=4.11.0
-requests>=2.28.0
-pandas>=1.5.0
-lxml>=4.9.0
-pdfplumber>=0.7.0
-aws-lambda-powertools
+nsepython==2.97        # NSE current-day FII/DII (returns latest only)
+nselib==2.5.1          # NSE historical (derivatives stats per date)
+xlrd==2.0.2            # For reading older .xls files
+openpyxl==3.1.5        # For reading .xlsx files
 ```
 
 ---
 
-## How to Continue
+## Files Created/Modified Today
 
-1. **Start with Phase 1**: Build YFinance fetcher
-   - Reference: `docs/DATA_COLLECTION_STRATEGY.md` → Week 1 section
-   - Check: All 6 tickers downloadable and have 12+ months data
+**New**:
+- `src/data_collection/collectors/nsdl_fpi_scraper.py` (NSDL FII scraper) — committed
+- `src/data_collection/input/fii_nsdl_monthly.csv` (77 months real FII) — committed
 
-2. **Then Phase 2**: Build scrapers
-   - TrendLyne is preferred over NSE for FII/DII (structured tables)
-   - Use BeautifulSoup4 for all HTML parsing
-   - Add pandas for data cleaning
+**Modified**:
+- `src/data_collection/collectors/cpi_collector.py` — `.values[0]` bug fix — committed
+- `docs/plan/Implementation_Requirements.md` — added 3 pipeline architecture section — **NOT yet committed**
 
-3. **Then Phase 3**: Unified pipeline
-   - Combine YFinance + 4 scrapers
-   - Test with decision algorithm
-   - Validate state transitions
-
-4. **Finally Phase 4**: Lambda deployment
-
----
-
-## Git Information
-
-- **Current branch**: ravi-UAT
-- **Main branch**: main
-- **Git user**: albertodavincishekhawat
-- **Status**: Clean (no uncommitted changes)
-- **Last commit**: fab7425 Add README
-
-When ready to merge:
-1. Create new commit for pipeline implementation
-2. Push to origin/ravi-UAT
-3. Create PR to main
-4. Attribution: `Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>`
+**Stale docs (from yesterday — may need rewrite)**:
+- `PHASE2_SCRAPER_STATUS.md`
+- `PHASE3_STATUS.md`
+- `DATA_SOURCES_STATUS.md`
+- `FII_DII_USER_ACTION.md` (obsolete — no longer need manual download, NSDL scraper works)
+- `CPI_USER_ACTION.md`
 
 ---
 
-## Quick Command Reference
+## How to Resume in a New Session
 
-```bash
-# Test YFinance availability
-python3 src/fred_testing/test_yfinance.py
-
-# Test scraper accessibility
-python3 src/scraping_tests/check_scrapability.py
-
-# View data collection strategy
-cat docs/DATA_COLLECTION_STRATEGY.md
-
-# Check git status
-git status
-
-# Create new branch for pipeline work
-git checkout -b feature/data-collection
-```
-
----
-
-**Ready to proceed with Phase 1 when you continue this session.**
+1. Read this file first
+2. Run: `git log --oneline -5` to verify commit state matches
+3. Check current state of synthetic sources by running:
+   ```bash
+   python3 -c "from src.data_collection.collectors.fii_dii_collector import FIIDIICollector; c = FIIDIICollector(); print(c.data.head() if c.data is not None else 'NOT LOADED')"
+   ```
+4. Pick up at "In Progress — RBI Balance Sheet Scraper" or "Up Next" section
+5. The NSDL scraper is the working template — pattern after it for new scrapers

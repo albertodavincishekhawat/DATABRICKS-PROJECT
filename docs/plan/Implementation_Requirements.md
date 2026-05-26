@@ -608,6 +608,88 @@ CREATE TABLE state_history (
 
 ---
 
+## Data Pipeline Architecture
+
+Three distinct pipeline types are required to manage data ingestion:
+
+### Pipeline Type 1: Per-Parameter Full Refresh (On-Demand)
+
+**Purpose**: Rebuild the complete history for a single data parameter from scratch, up to today.
+
+**Trigger**: Manual / on-demand (user selects which parameter to refresh)
+
+**Behavior**:
+- Wipes existing data for the selected parameter
+- Re-fetches the entire historical range from the source (2020-01 → today)
+- Replaces the parameter's input CSV / table
+- Re-runs monthly aggregation for that parameter
+
+**Use cases**:
+- Source schema changed and historical reparse is needed
+- A specific parameter is suspected to be stale or corrupted
+- Initial backfill when adding a new data source
+
+**Required**: One refresh script per parameter (10 total — Nifty50, USDINR, Gold INR, Gold USD, Brent, NiftyBees, CPI, Repo Rate, FII/DII, RBI Balance Sheet).
+
+**Interface**: `python -m src.data_collection.refresh --param <name>`
+
+---
+
+### Pipeline Type 2: Global Full Refresh (On-Demand)
+
+**Purpose**: Rebuild the complete history for **all** data parameters in one run, up to today.
+
+**Trigger**: Manual / on-demand (no parameter selection — runs everything)
+
+**Behavior**:
+- Iterates through all per-parameter full-refresh pipelines (Type 1)
+- Re-runs the monthly aggregator at the end to regenerate aligned monthly CSVs and master_dates
+- Produces a single quality report covering all sources
+
+**Use cases**:
+- Initial system setup / fresh clone
+- After major code changes affecting multiple collectors
+- Disaster recovery / data integrity restoration
+
+**Interface**: `python -m src.data_collection.refresh --all`
+
+---
+
+### Pipeline Type 3: Per-Parameter Monthly Upsert (Scheduled)
+
+**Purpose**: Append only the newest data (latest month) for a single parameter, leaving historical rows untouched.
+
+**Trigger**: Scheduled — runs monthly (1st of each month, after month-end data is published)
+
+**Behavior**:
+- Reads the latest date present in the existing input CSV
+- Fetches only data from `latest_date + 1 day` onward
+- Upserts new rows (insert if missing, update if same date already exists with different value — handles late-published revisions)
+- Re-runs monthly aggregation incrementally for the affected month
+
+**Use cases**:
+- Routine monthly data refresh
+- Keeping the system current without re-downloading history
+- Bandwidth-efficient daily/weekly cron jobs
+
+**Required**: One upsert script per parameter (10 total).
+
+**Interface**: `python -m src.data_collection.upsert --param <name>`
+
+**Idempotency requirement**: Running the upsert pipeline twice in the same day must produce the same result (no duplicate rows).
+
+---
+
+### Pipeline Type Summary
+
+| # | Pipeline                       | Scope        | Trigger    | Behavior        |
+|---|--------------------------------|--------------|------------|-----------------|
+| 1 | Per-parameter full refresh     | 1 parameter  | On-demand  | Wipe + rebuild  |
+| 2 | Global full refresh            | All 10       | On-demand  | Wipe + rebuild  |
+| 3 | Per-parameter monthly upsert   | 1 parameter  | Scheduled  | Append only     |
+
+---
+
 ## Processing Requirements
 
 ### Data Pipeline Components
