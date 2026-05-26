@@ -287,21 +287,19 @@ Until exit confirmed: 20% Gold floor remains in force
 
 ---
 
-## Rule R7 - Institutional Selling as a Buy Signal
+## Rule R7 - FII Selling Signal
 
 ### Purpose
-Detect contrarian buy signal when foreign institutions (FIIs) sell heavily while domestic institutions (DIIs) buy, indicating domestic confidence despite foreign outflows.
+Detect contrarian buy signal when foreign institutions (FIIs) sell heavily, indicating a potential equity re-entry opportunity on foreign-driven dislocation.
 
 ### Metrics
 
 | Metric | Definition | Source |
 |--------|-----------|--------|
-| `fii_net_monthly` | FII Net Equity Investment per calendar month (equity cash only) | https://www.nseindia.com/market-data/fii-dii-activity |
+| `fii_net_monthly` | FII Net Equity Investment per calendar month (equity cash only) | NSDL FPI Yearwise report |
 | `fii_peak_inflow` | Highest positive monthly FII net inflow in trailing 24 months | Recalculated every month |
 | `fii_3m_cumulative` | Sum of FII net flows for most recent 3 complete calendar months | Calculated |
 | `outflow_threshold` | `fii_peak_inflow * 0.25` | Recalculated monthly |
-| `dii_net_monthly` | DII Net Equity Investment per calendar month (equity cash only) | https://www.nseindia.com/market-data/fii-dii-activity |
-| `dii_3m_sum` | Sum of DII net flows for most recent 3 complete calendar months | Calculated |
 
 ### Trigger Logic
 
@@ -312,9 +310,8 @@ outflow_threshold = fii_peak_inflow * 0.25
 
 fii_outflow_check = (fii_3m_cumulative < 0) 
                   AND (ABS(fii_3m_cumulative) >= outflow_threshold)
-dii_positive_check = (dii_3m_sum > 0)
 
-IF fii_outflow_check == TRUE AND dii_positive_check == TRUE
+IF fii_outflow_check == TRUE
 THEN R7_TRIGGERED = TRUE
 ACTION (depends on current State):
   IF State 3: Do not reduce Nifty further via lump-sum mid-quarter action
@@ -335,7 +332,6 @@ THEN R7_TRIGGERED = FALSE immediately
 ```
 IF fii_3m_cumulative < 0 
 AND ABS(fii_3m_cumulative) >= (outflow_threshold * 0.60)
-AND dii_3m_sum > 0
 THEN Log (no action, monitor monthly)
 ```
 
@@ -343,8 +339,7 @@ THEN Log (no action, monitor monthly)
 
 R7 exits when ANY of these occur:
 1. `fii_3m_cumulative` turns positive (FII becomes net buyer over 3 months)
-2. `dii_3m_sum` turns negative (DII stops supporting market)
-3. `ABS(fii_3m_cumulative) < outflow_threshold` after monthly recalculation
+2. `ABS(fii_3m_cumulative) < outflow_threshold` after monthly recalculation
 
 When R7 exits: return to standard State-based SIP immediately (no waiting period)
 
@@ -372,7 +367,7 @@ When R7 exits: return to standard State-based SIP immediately (no waiting period
 **Market Context:**
 - R1 active: Monetary system under stress
 - R2 active: Real rates significantly positive, compressing equity valuations
-- R7 active: FII selling heavily, DII buying (domestic support floor)
+- R7 active: FII selling heavily (3m cumulative outflow ≥ 25% of peak inflow)
 
 **Default Action**: Hold State 2 (50:50 Nifty / Gold)
 
@@ -463,7 +458,7 @@ If holiday: +1 day, repeat until trading day found
 | 4 | R1 currency trigger? | `inr_depreciation_pct >= 3.0% AND currency_sustained=TRUE` | Add +20pp Gold |
 | 5 | R2 trigger? | `real_rate > 3.0%` | 75% shift to State target + 30% Gold floor |
 | 6 | R5 trigger? | `bs_yoy > 25%` | Enforce 20% Gold floor |
-| 7 | R7 trigger? | `fii_3m_cumulative < 0 AND ABS(fii_3m) >= peak*0.25 AND dii_3m_sum > 0` | Block mid-quarter Nifty sells / SIP adjustments |
+| 7 | R7 trigger? | `fii_3m_cumulative < 0 AND ABS(fii_3m) >= peak*0.25` | Block mid-quarter Nifty sells / SIP adjustments |
 | 8 | Nothing triggered? | All above = FALSE | Log all readings, wait for quarterly check |
 
 ---
@@ -476,7 +471,7 @@ If holiday: +1 day, repeat until trading day found
 | USD/INR Rate | https://www.rbi.org.in/Scripts/ReferenceRateArchive.aspx | ✓ Confirmed |
 | CPI | https://mospi.gov.in/consumer-price-index | ✓ Confirmed |
 | RBI Balance Sheet | RBI Weekly Statistical Supplement (WSS) Table 1 | ✓ Confirmed |
-| FII/DII Activity | https://www.nseindia.com/market-data/fii-dii-activity | ✓ Confirmed |
+| FII Activity | NSDL FPI Yearwise report (fpi.nsdl.co.in) | ✓ Confirmed |
 | Brent Crude Price | PENDING | ⏳ To be identified and tested |
 | Gold INR Price | PENDING | ⏳ To be identified and tested |
 | Nifty Index | PENDING | ⏳ To be identified and tested |

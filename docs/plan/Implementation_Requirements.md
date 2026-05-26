@@ -43,7 +43,7 @@ This document outlines what data is needed, where it comes from, and how to set 
 | R2 | RBI Repo Rate, CPI | Monthly MPC, Monthly CPI | ✓ Confirmed |
 | R3 | Brent Crude Price | Daily | ⏳ **PENDING** |
 | R5 | RBI Balance Sheet | Weekly | ✓ Confirmed |
-| R7 | FII/DII Activity | Daily | ✓ Confirmed |
+| R7 | FII Activity | Monthly | ✓ Confirmed |
 | Quarterly Check | Nifty Index, Gold INR Price | Daily | ⏳ **PENDING** |
 | SIP Execution | Portfolio NAV, Gold ETF Price, Nifty ETF Price | Daily | ⏳ **PENDING** |
 
@@ -179,36 +179,32 @@ def fetch_rbi_balance_sheet():
 
 ---
 
-### 5. FII/DII Activity
+### 5. FII Activity
 
-**Endpoint**: https://www.nseindia.com/market-data/fii-dii-activity
+**Endpoint**: https://www.fpi.nsdl.co.in/Reports/Yearwise.aspx?RptType=6
 
-**Frequency**: Daily (released daily, with lag of 1-2 days)
+**Frequency**: Monthly (NSDL publishes monthly FPI net investment totals)
 
 **Data Points**:
-- FII Net Equity Investment (Rs. Crore/day)
-- DII Net Equity Investment (Rs. Crore/day)
-- Calendar month totals
-- Equity cash segment only (exclude F&O, debt, hybrid)
+- FII Net Equity Investment (Rs. Crore/month)
+- Equity cash segment only (exclude debt, hybrid)
 
 **Implementation**:
 ```python
-def fetch_fii_dii_activity(date=None):
-    # Source: NSE
+def fetch_fii_activity(year):
+    # Source: NSDL FPI Yearwise report
     # CRITICAL: Equity cash segment ONLY
-    # Exclude F&O, debt, hybrid instruments
+    # Exclude debt, hybrid instruments
     return {
-        'date': date,
+        'date': month_end_date,
         'fii_net': fii_amount,  # positive = inflow, negative = outflow
-        'dii_net': dii_amount,
-        'source': 'NSE'
+        'source': 'NSDL'
     }
 ```
 
 **Required Fields**:
-- `date` (YYYY-MM-DD)
+- `date` (YYYY-MM-DD, last day of month)
 - `fii_net` (Rs. Crore, signed)
-- `dii_net` (Rs. Crore, signed)
 
 ---
 
@@ -494,11 +490,10 @@ CREATE TABLE rbi_balance_sheet (
     INDEX(date)
 );
 
-CREATE TABLE fii_dii_activity (
+CREATE TABLE fii_activity (
     id SERIAL PRIMARY KEY,
     date DATE UNIQUE NOT NULL,
     fii_net BIGINT NOT NULL,  -- Rs. Crore, signed
-    dii_net BIGINT NOT NULL,  -- Rs. Crore, signed
     source VARCHAR(100),
     fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX(date)
@@ -629,7 +624,7 @@ Three distinct pipeline types are required to manage data ingestion:
 - A specific parameter is suspected to be stale or corrupted
 - Initial backfill when adding a new data source
 
-**Required**: One refresh script per parameter (10 total — Nifty50, USDINR, Gold INR, Gold USD, Brent, NiftyBees, CPI, Repo Rate, FII/DII, RBI Balance Sheet).
+**Required**: One refresh script per parameter (10 total — Nifty50, USDINR, Gold INR, Gold USD, Brent, NiftyBees, CPI, Repo Rate, FII, RBI Balance Sheet).
 
 **Interface**: `python -m src.data_collection.refresh --param <name>`
 
@@ -720,11 +715,11 @@ Execution & Logging
    - R1 inr_depreciation: `(usdinr_today - usdinr_6m_ago) / usdinr_6m_ago * 100`
    - R2 real_rate: `repo_rate - cpi_yoy`
    - R5 bs_yoy: `(bs_current - bs_year_ago) / bs_year_ago * 100`
-   - R7 fii_peak_inflow, fii_3m_cumulative, dii_3m_sum
+   - R7 fii_peak_inflow, fii_3m_cumulative
 
 2. **Monthly (1st of month)**
    - Brent 12-month average recalculation
-   - FII/DII peak and threshold recalculation
+   - FII peak inflow and outflow threshold recalculation
    - SIP amount calculation based on portfolio NAV
 
 3. **Quarterly (Jan 1, Apr 1, Jul 1, Oct 1)**
@@ -758,7 +753,7 @@ assert -5 < cpi_yoy < 20, "CPI YoY out of normal range"
 # Brent validation
 assert 20 < brent < 200, "Brent price out of normal range"
 
-# FII/DII validation
+# FII validation
 assert -100000 < fii_net < 100000, "FII net flow out of range"
 ```
 
@@ -862,7 +857,7 @@ Before production deployment:
 | Brent Crude | Use Week 1 average or previous day's price |
 | Nifty Price | Hold position, rebalance when data available |
 | Gold INR | Use spot price from IBJA if ETF price unavailable |
-| FII/DII Data | Use previous day's data with lag flag |
+| FII Data | Use previous month's data with lag flag |
 | RBI Data | Weekly data, can use prior week if delayed |
 | CPI | Monthly data, use prior month if delayed |
 
