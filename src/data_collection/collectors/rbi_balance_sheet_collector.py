@@ -6,7 +6,7 @@ Frequency: Weekly (usually Fridays)
 Source: DBIE manual download or realistic sample data
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional, Dict, Any
 import pandas as pd
 from pathlib import Path
@@ -43,10 +43,10 @@ class RBIBalanceSheetCollector(BaseCollector):
 
     def _load_data(self):
         """Load RBI Balance Sheet data from CSV."""
-        # Try paths in order
         paths_to_try = [
             self.csv_path,
-            'src/data_collection/input/rbi_balance_sheet_dbie.csv',  # DBIE scraper output
+            'src/data_collection/input/rbi_wss_monthly.csv',          # Real WSS scraper output (primary)
+            'src/data_collection/input/rbi_balance_sheet_dbie.csv',
             'src/data_collection/input/rbi_balance_sheet_historical.csv',
             'src/data_collection/input/rbi_balance_sheet_real.csv',
             'src/data_collection/input/rbi_balance_sheet_manual.csv',
@@ -60,39 +60,17 @@ class RBIBalanceSheetCollector(BaseCollector):
                 try:
                     df = pd.read_csv(path)
                     df['Date'] = pd.to_datetime(df['Date'])
-                    self.data = df.sort_values('Date')
-
-                    logger.info(f"[RBI_Balance_Sheet] Loaded from {path} ({len(self.data)} records)")
+                    # WSS scraper names the column Total_Liabilities; alias to Total_Assets
+                    if 'Total_Liabilities' in df.columns and 'Total_Assets' not in df.columns:
+                        df = df.rename(columns={'Total_Liabilities': 'Total_Assets'})
+                    self.data = df.sort_values('Date').reset_index(drop=True)
+                    logger.info(f"[RBI_Balance_Sheet] Loaded {len(self.data)} records from {path}")
                     return
 
                 except Exception as e:
                     logger.warning(f"[RBI_Balance_Sheet] Error loading {path}: {str(e)[:50]}")
 
-        # Fallback: Create sample data
-        logger.warning("[RBI_Balance_Sheet] No real data found, using sample data")
-        self._create_sample_data()
-
-    def _create_sample_data(self):
-        """Create realistic sample RBI Balance Sheet data for testing."""
-        today = datetime.now()
-        weeks_back = 12
-
-        data = []
-        base_assets = 615000.0
-        base_fca = 289000.0
-        base_notes = 78000.0
-
-        for i in range(weeks_back):
-            data.append({
-                'Date': (today - timedelta(days=i*7)).strftime('%Y-%m-%d'),
-                'Total_Assets': base_assets - (i*800),
-                'FCA': base_fca - (i*350),
-                'Notes_Circulation': base_notes - (i*250),
-            })
-
-        self.data = pd.DataFrame(data)
-        self.data['Date'] = pd.to_datetime(self.data['Date'])
-        logger.info(f"[RBI_Balance_Sheet] Created sample data ({len(self.data)} records)")
+        logger.error("[RBI_Balance_Sheet] No real data found — no fallback, returning empty")
 
     def has_data_on_date(self, date: datetime) -> bool:
         """Check if RBI Balance Sheet data exists on or before this date."""
