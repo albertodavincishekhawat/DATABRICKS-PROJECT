@@ -1,8 +1,9 @@
 """
 CPI Collector
 
-Fetches India CPI from FRED API (Federal Reserve Economic Data).
-Series: INDCPIALLMINMEI (India Consumer Price Index)
+Loads India CPI from cpi_combined.csv, scraped from rateinflation.com (MOSPI source).
+Base year: 2024 = 100. Coverage: Jan 2013 → current month.
+Run cpi_mospi_scraper.py to refresh the CSV.
 """
 
 from datetime import datetime, timedelta
@@ -14,23 +15,15 @@ from .base_collector import BaseCollector
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-try:
-    from pandas_datareader import data as web
-    FRED_AVAILABLE = True
-except ImportError:
-    FRED_AVAILABLE = False
-
 
 class CPICollector(BaseCollector):
     """
-    Collect monthly India CPI from FRED.
+    Collect monthly India CPI from MOSPI (via rateinflation.com scraper).
 
-    Frequency: Monthly (published mid-month for prior month)
-    Source: INDCPIALLMINMEI (Federal Reserve Economic Data)
+    Frequency: Monthly (published 12th of each month for prior month)
+    Source: cpi_combined.csv — scraped from rateinflation.com (MOSPI data, base 2024=100)
     Aggregation: Use month's published CPI value
     """
-
-    FRED_SERIES = 'INDCPIALLMINMEI'
 
     def __init__(self):
         """Initialize CPI collector."""
@@ -39,10 +32,9 @@ class CPICollector(BaseCollector):
         self._fetch_data()
 
     def _fetch_data(self):
-        """Fetch CPI data from combined CSV or FRED."""
+        """Load CPI data from combined CSV."""
         from pathlib import Path
 
-        # Try combined CSV first (FRED + user-provided data)
         combined_csv = 'src/data_collection/input/cpi_combined.csv'
         if Path(combined_csv).exists():
             try:
@@ -63,34 +55,7 @@ class CPICollector(BaseCollector):
             except Exception as e:
                 logger.warning(f"[CPI] Error loading combined CSV: {str(e)[:100]}")
 
-        # Fall back to FRED if combined CSV not available
-        if not FRED_AVAILABLE:
-            logger.warning("[CPI] pandas-datareader not installed")
-            return
-
-        try:
-            self.log_status("Fetching from FRED...")
-            df = web.DataReader(
-                self.FRED_SERIES,
-                'fred',
-                start='2020-01-01',
-                end='2026-04-30'
-            )
-
-            # Convert to DataFrame with Date column
-            df = df.reset_index()
-            df.columns = ['Date', 'CPI']
-            df['Date'] = pd.to_datetime(df['Date'])
-
-            # Index by year-month for quick lookup
-            df['YearMonth'] = df['Date'].dt.to_period('M')
-            self.data = df.set_index('YearMonth')
-
-            logger.info(f"[CPI] Loaded {len(self.data)} data points from FRED ({self.data.index[0]} to {self.data.index[-1]})")
-
-        except Exception as e:
-            logger.error(f"[CPI] Error fetching from FRED: {str(e)[:100]}")
-            self.data = None
+        logger.error("[CPI] cpi_combined.csv not found — run cpi_mospi_scraper.py to fetch data")
 
     def has_data_on_date(self, date: datetime) -> bool:
         """

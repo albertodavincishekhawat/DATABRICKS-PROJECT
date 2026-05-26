@@ -1,199 +1,80 @@
 """
-MOSPI CPI Scraper
+India CPI Scraper - rateinflation.com
 
-Fetches latest Consumer Price Index data from MOSPI (Ministry of Statistics)
-https://mospi.gov.in/
+Fetches India Consumer Price Index (All Items, Combined) monthly data
+from rateinflation.com, which sources directly from MOSPI/PIB.
 
-Official source for India's CPI data
+Base year: 2024 = 100
+Coverage:  2013 → current month (updated 12th of each month)
+Verified:  Apr 2026 Combined = 105.12 matches PIB press release exactly.
+
+No API key required. Simple HTML table scrape.
 """
 
-import requests
-import pandas as pd
-from datetime import datetime
+from curl_cffi import requests as cr
 from bs4 import BeautifulSoup
+import pandas as pd
+from io import StringIO
+from pathlib import Path
 import logging
-import time
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-def scrape_mospi_cpi(retry_attempts=3):
-    """
-    Scrape latest CPI data from MOSPI website.
-
-    Returns:
-        DataFrame with columns: Date, CPI, Source
-        or None if scraping fails
-    """
-
-    urls_to_try = [
-        'https://mospi.gov.in/cpi-page',
-        'https://mospi.gov.in/documents/statistics-documents/cpi',
-        'https://mospi.gov.in/',
-    ]
-
-    for attempt in range(retry_attempts):
-        for url in urls_to_try:
-            try:
-                logger.info(f"Attempt {attempt + 1}: Fetching {url}...")
-
-                response = requests.get(
-                    url,
-                    timeout=10,
-                    headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-                )
-                response.raise_for_status()
-
-                # Parse HTML
-                soup = BeautifulSoup(response.content, 'html.parser')
-
-                # Try to find CPI tables
-                tables = soup.find_all('table')
-
-                if tables:
-                    for table in tables:
-                        df = parse_cpi_table(table)
-                        if df is not None and len(df) > 0:
-                            logger.info(f"✓ Found CPI data: {len(df)} records")
-                            df['Source'] = 'MOSPI'
-                            return df
-
-                logger.info("  No CPI table found in this page")
-
-            except Exception as e:
-                logger.debug(f"  Error with {url}: {str(e)[:80]}")
-                time.sleep(1)
-
-        if attempt < retry_attempts - 1:
-            logger.info(f"  Retrying in 2 seconds...")
-            time.sleep(2)
-
-    logger.warning("MOSPI scraping failed - no CPI data retrieved")
-    return None
+URL = 'https://www.rateinflation.com/consumer-price-index/india-historical-cpi/'
+MONTH_COLS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
 
-def parse_cpi_table(table):
-    """
-    Parse HTML table for CPI data.
+def fetch() -> pd.DataFrame:
+    """Scrape and return monthly CPI DataFrame with columns: Date, CPI, Source."""
+    s = cr.Session(impersonate='chrome120')
+    r = s.get(URL, timeout=30)
+    r.raise_for_status()
 
-    Looks for columns containing month/year and CPI value
+    soup = BeautifulSoup(r.text, 'html.parser')
+    tables = soup.find_all('table')
+    if not tables:
+        raise RuntimeError('No table found on rateinflation.com CPI page')
 
-    Returns:
-        DataFrame or None
-    """
-    try:
-        rows = table.find_all('tr')
+    raw = pd.read_html(StringIO(str(tables[0])))[0]
+    # Normalise column names to lowercase
+    raw.columns = [str(c).lower() for c in raw.columns]
 
-        if len(rows) < 2:
-            return None
-
-        data = []
-        headers = []
-
-        # Get headers from first row
-        for th in rows[0].find_all(['th', 'td']):
-            headers.append(th.get_text(strip=True).lower())
-
-        # Skip if no clear month/date column
-        month_idx = None
-        cpi_idx = None
-
-        for i, h in enumerate(headers):
-            if 'month' in h or 'date' in h or 'period' in h:
-                month_idx = i
-            if 'cpi' in h or 'index' in h:
-                cpi_idx = i
-
-        if month_idx is None or cpi_idx is None:
-            return None
-
-        # Parse data rows
-        for row in rows[1:]:
-            cells = row.find_all(['td', 'th'])
-
-            if len(cells) <= max(month_idx, cpi_idx):
+    rows = []
+    for _, row in raw.iterrows():
+        year = int(row['year'])
+        for month_idx, col in enumerate(MONTH_COLS, start=1):
+            val = row.get(col)
+            if pd.isna(val):
                 continue
+            rows.append({
+                'Date': pd.Timestamp(year, month_idx, 1),
+                'CPI': float(val),
+                'Source': 'MOSPI',
+            })
 
-            try:
-                month_str = cells[month_idx].get_text(strip=True)
-                cpi_str = cells[cpi_idx].get_text(strip=True)
-
-                # Try to parse month/year and CPI value
-                date = parse_month_string(month_str)
-                cpi = float(cpi_str.replace(',', ''))
-
-                if date and cpi > 0:
-                    data.append({
-                        'Date': date,
-                        'CPI': cpi
-                    })
-
-            except (ValueError, IndexError):
-                continue
-
-        if len(data) > 0:
-            return pd.DataFrame(data)
-
-    except Exception as e:
-        logger.debug(f"Error parsing table: {str(e)[:50]}")
-
-    return None
-
-
-def parse_month_string(month_str):
-    """
-    Parse month string to datetime.
-
-    Handles formats like:
-    - 'Jan-2025', 'January 2025'
-    - '2025-01', '01-2025'
-    - 'Apr 2025'
-    """
-
-    month_str = month_str.strip()
-
-    date_formats = [
-        '%b-%Y',      # Jan-2025
-        '%B-%Y',      # January-2025
-        '%b %Y',      # Jan 2025
-        '%B %Y',      # January 2025
-        '%Y-%m',      # 2025-01
-        '%m-%Y',      # 01-2025
-        '%d-%m-%Y',   # 31-01-2025
-        '%Y/%m',      # 2025/01
-    ]
-
-    for fmt in date_formats:
-        try:
-            return pd.to_datetime(month_str, format=fmt)
-        except ValueError:
-            continue
-
-    # Try pandas parsing as fallback
-    try:
-        return pd.to_datetime(month_str)
-    except:
-        return None
+    df = pd.DataFrame(rows).sort_values('Date').reset_index(drop=True)
+    logger.info(f"[CPI] {len(df)} months scraped: {df['Date'].iloc[0].date()} → {df['Date'].iloc[-1].date()}")
+    return df
 
 
 def main():
-    """Test the scraper"""
-    print("\nFetching latest CPI from MOSPI...")
-    print("="*70)
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
 
-    df = scrape_mospi_cpi()
+    df = fetch()
+    if df.empty:
+        print('FAILED: no data')
+        return 1
 
-    if df is not None and len(df) > 0:
-        print(f"\n✓ Success! Retrieved {len(df)} CPI records")
-        print(f"\nLatest data:")
-        print(df.tail(10))
-        print(f"\nDate range: {df['Date'].min()} to {df['Date'].max()}")
-        return df
-    else:
-        print("\n✗ No CPI data retrieved from MOSPI")
-        return None
+    out = Path('src/data_collection/input/cpi_combined.csv')
+    out.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out, index=False)
+    print(f'\n✓ Saved {len(df)} months to {out}')
+    print(f'  Range: {df["Date"].iloc[0].date()} → {df["Date"].iloc[-1].date()}')
+    print(f'  Base year: 2024 = 100  |  Source: MOSPI via rateinflation.com')
+    print(f'\nLatest 6 months:')
+    print(df.tail(6).to_string(index=False))
+    return 0
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    raise SystemExit(main())
