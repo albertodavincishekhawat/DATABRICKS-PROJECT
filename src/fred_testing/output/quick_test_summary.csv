@@ -1,6 +1,0 @@
-,status,error,rows,latest_date,latest_value,csv_file
-Brent_Crude,FAILED,No data returned,,,,
-Gold_Price_USD,FAILED,No data returned,,,,
-US_CPI,SUCCESS,,10,2026-04-01,332.407,src/fred_testing/output/US_CPI_latest_10.csv
-Federal_Funds_Rate,SUCCESS,,10,2026-04-01,3.64,src/fred_testing/output/Federal_Funds_Rate_latest_10.csv
-USD_EUR_Rate,SUCCESS,,10,2026-05-15,1.1627,src/fred_testing/output/USD_EUR_Rate_latest_10.csv
