@@ -182,20 +182,20 @@ Month 5: real_rate=2.8% → confirmed 2nd month below 3.0% → R2 exits
 ## Rule R3 - Commodity/Oil Shock
 
 ### Purpose
-Detect oil price spikes (Brent crude) that create stagflation risk, requiring defensive positioning.
+Detect oil price spikes (WTI/USOIL) that create stagflation risk, requiring defensive positioning.
 
 ### Metrics
 
 | Metric | Definition | Source |
 |--------|-----------|--------|
-| `brent_today` | Brent Crude Oil spot price USD/barrel | PENDING |
-| `brent_12m_avg` | Rolling 12-month average of Brent Crude | Recalculated 1st of month |
-| `ratio` | `brent_today / brent_12m_avg` | Calculated |
+| `usoil_today` | WTI Crude Oil spot price USD/barrel | YFinance CL=F |
+| `usoil_12m_avg` | Rolling 12-month average of WTI (USOIL) | Recalculated 1st of month |
+| `ratio` | `usoil_today / usoil_12m_avg` | Calculated |
 
 ### Trigger Logic
 
 ```
-ratio = brent_today / brent_12m_avg
+ratio = usoil_today / usoil_12m_avg
 
 IF ratio >= 1.80
 THEN R3_TRIGGERED = TRUE
@@ -212,7 +212,7 @@ ELSE
 IF ratio >= 1.40 AND ratio < 1.80
 THEN:
   Log: set price alert for R3 trigger
-  Recompute alert price every 1st of month as brent_12m_avg updates
+  Recompute alert price every 1st of month as usoil_12m_avg updates
 ```
 
 ### Exit Condition
@@ -230,8 +230,8 @@ force move to State 2 (50:50) regardless of ratio
 ### Example (May 2026)
 
 ```
-brent_today = $104.52
-brent_12m_avg = $71.19
+usoil_today = $104.52
+usoil_12m_avg = $71.19
 ratio = 104.52 / 71.19 = 1.469
 STATUS: YELLOW (>= 1.40 but < 1.80)
 TRIGGER_PRICE = 71.19 * 1.80 = $128.14
@@ -452,7 +452,7 @@ If holiday: +1 day, repeat until trading day found
 
 | Step | Check | Calculation | Action |
 |------|-------|-------------|--------|
-| 1 | R3 trigger? | `ratio = brent_today / brent_12m_avg` → `ratio >= 1.80` | Shift to State 3 (10:90) immediately |
+| 1 | R3 trigger? | `ratio = usoil_today / usoil_12m_avg` → `ratio >= 1.80` | Shift to State 3 (10:90) immediately |
 | 2 | R3 yellow? | `ratio >= 1.40 AND ratio < 1.80` | Log + update trigger price monthly |
 | 3 | R1 rate trigger? | `pct_change >= 20% AND direction_clean=TRUE AND sustained=TRUE` | Add +20pp Gold |
 | 4 | R1 currency trigger? | `inr_depreciation_pct >= 3.0% AND currency_sustained=TRUE` | Add +20pp Gold |
@@ -472,7 +472,7 @@ If holiday: +1 day, repeat until trading day found
 | CPI | https://mospi.gov.in/consumer-price-index | ✓ Confirmed |
 | RBI Balance Sheet | RBI Weekly Statistical Supplement (WSS) Table 1 | ✓ Confirmed |
 | FII Activity | NSDL FPI Yearwise report (fpi.nsdl.co.in) | ✓ Confirmed |
-| Brent Crude Price | PENDING | ⏳ To be identified and tested |
+| USOIL (WTI) Price | YFinance CL=F | ✓ Confirmed |
 | Gold INR Price | PENDING | ⏳ To be identified and tested |
 | Nifty Index | PENDING | ⏳ To be identified and tested |
 

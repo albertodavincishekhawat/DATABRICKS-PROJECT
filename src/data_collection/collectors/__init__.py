@@ -6,6 +6,7 @@ from .cpi_collector import CPICollector
 from .repo_rate_collector import RepoRateCollector
 from .fii_dii_collector import FIIDIICollector
 from .rbi_balance_sheet_collector import RBIBalanceSheetCollector
+from .usoil_collector import USOILCollector
 
 __all__ = [
     'BaseCollector',
@@ -14,4 +15,5 @@ __all__ = [
     'RepoRateCollector',
     'FIIDIICollector',
     'RBIBalanceSheetCollector',
+    'USOILCollector',
 ]

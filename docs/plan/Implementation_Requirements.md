@@ -41,7 +41,7 @@ This document outlines what data is needed, where it comes from, and how to set 
 |------|---------------|-----------|--------|
 | R1 | RBI Repo Rate, USD/INR | After each MPC, Daily | ✓ Confirmed |
 | R2 | RBI Repo Rate, CPI | Monthly MPC, Monthly CPI | ✓ Confirmed |
-| R3 | Brent Crude Price | Daily | ⏳ **PENDING** |
+| R3 | USOIL (WTI) Price | Daily | ✓ Confirmed |
 | R5 | RBI Balance Sheet | Weekly | ✓ Confirmed |
 | R7 | FII Activity | Monthly | ✓ Confirmed |
 | Quarterly Check | Nifty Index, Gold INR Price | Daily | ⏳ **PENDING** |
@@ -208,48 +208,31 @@ def fetch_fii_activity(year):
 
 ---
 
+## Confirmed Data Sources (continued)
+
+### 6. USOIL (WTI) Price
+
+**Current Status**: ✓ Confirmed — YFinance CL=F (NYMEX WTI front-month futures)
+
+**Source**: YFinance ticker `CL=F`
+**Frequency**: Daily (previous trading day, same latency as all YFinance sources)
+**Coverage**: Jan 2020 – present
+**Output**: `src/data_collection/input/usoil_daily.csv`
+
+**Scraper**: `src/data_collection/collectors/usoil_scraper.py`
+**Collector**: `src/data_collection/collectors/usoil_collector.py`
+
+**Required Fields**:
+- `date` (YYYY-MM-DD)
+- `usoil_price` (USD/barrel, decimal)
+
+---
+
 ## Pending Data Sources
-
-### ⏳ 1. Brent Crude Oil Price (CRITICAL)
-
-**Current Status**: PENDING - Primary source to be identified and tested
-
-**Requirements**:
-- Daily spot price in USD/barrel
-- Historical data (365+ days for 12-month average)
-- Reliable, real-time feed required for R3 trigger
-
-**Candidate Sources**:
-1. **US Energy Information Administration (EIA)**
-   - URL: https://www.eia.gov/petroleum/data.php
-   - Data: Daily Brent Crude spot price
-   - Lag: ~1 day
-   - Reliability: High
-
-2. **World Bank Commodity Prices**
-   - URL: https://www.worldbank.org/en/research/commodity-markets
-   - Data: Monthly/Daily Brent prices
-   - Reliability: High
-
-3. **CME (Chicago Mercantile Exchange)**
-   - Brent crude futures prices (proxy for spot)
-   - Real-time data
-   - Reliability: Very high
-
-4. **Oil & Gas Journal**
-   - Daily Brent assessments
-   - Reliability: High
-
-**Recommended Approach**:
-```
-Primary: EIA API (free, reliable)
-Backup: World Bank data (if EIA unavailable)
-Fallback: Manual entry from Bloomberg/Reuters terminals
-```
 
 **Data Collection Implementation**:
 ```python
-def fetch_brent_crude_price(date=None):
+def fetch_usoil_price(date=None):
     # PRIMARY: EIA API
     try:
         return fetch_from_eia_api(date)
@@ -257,12 +240,12 @@ def fetch_brent_crude_price(date=None):
         # FALLBACK: World Bank
         return fetch_from_worldbank(date)
     
-    # Returns: {'date': YYYY-MM-DD, 'brent_price': USD/barrel}
+    # Returns: {'date': YYYY-MM-DD, 'usoil_price': USD/barrel}
 ```
 
 **Required Fields**:
 - `date` (YYYY-MM-DD)
-- `brent_price` (USD/barrel, decimal)
+- `usoil_price` (USD/barrel, decimal)
 
 ---
 
@@ -499,7 +482,7 @@ CREATE TABLE fii_activity (
     INDEX(date)
 );
 
-CREATE TABLE brent_crude_price (
+CREATE TABLE usoil_price (
     id SERIAL PRIMARY KEY,
     date DATE UNIQUE NOT NULL,
     price DECIMAL(8,3) NOT NULL,  -- USD/barrel
@@ -624,7 +607,7 @@ Three distinct pipeline types are required to manage data ingestion:
 - A specific parameter is suspected to be stale or corrupted
 - Initial backfill when adding a new data source
 
-**Required**: One refresh script per parameter (10 total — Nifty50, USDINR, Gold INR, Gold USD, Brent, NiftyBees, CPI, Repo Rate, FII, RBI Balance Sheet).
+**Required**: One refresh script per parameter (10 total — Nifty50, USDINR, Gold INR, Gold USD, USOIL, NiftyBees, CPI, Repo Rate, FII, RBI Balance Sheet).
 
 **Interface**: `python -m src.data_collection.refresh --param <name>`
 
@@ -710,7 +693,7 @@ Execution & Logging
 ### Required Calculations
 
 1. **Weekly (Every Monday)**
-   - R3 ratio: `brent_today / brent_12m_avg`
+   - R3 ratio: `usoil_today / usoil_12m_avg`
    - R1 pct_change: `ABS(rate_current - rate_baseline) / rate_baseline * 100`
    - R1 inr_depreciation: `(usdinr_today - usdinr_6m_ago) / usdinr_6m_ago * 100`
    - R2 real_rate: `repo_rate - cpi_yoy`
@@ -718,7 +701,7 @@ Execution & Logging
    - R7 fii_peak_inflow, fii_3m_cumulative
 
 2. **Monthly (1st of month)**
-   - Brent 12-month average recalculation
+   - USOIL 12-month average recalculation
    - FII peak inflow and outflow threshold recalculation
    - SIP amount calculation based on portfolio NAV
 
@@ -750,8 +733,8 @@ assert 70 < usdinr < 100, "USD/INR out of normal range"
 # CPI validation
 assert -5 < cpi_yoy < 20, "CPI YoY out of normal range"
 
-# Brent validation
-assert 20 < brent < 200, "Brent price out of normal range"
+# USOIL validation
+assert 20 < usoil_price < 200, "USOIL price out of normal range"
 
 # FII validation
 assert -100000 < fii_net < 100000, "FII net flow out of range"
@@ -782,7 +765,7 @@ Before production deployment:
 
 ### Phase 1: Core Data Setup (Weeks 1-2)
 
-- [ ] Confirm Brent crude oil price source
+- [x] USOIL (WTI) source confirmed — YFinance CL=F
 - [ ] Confirm Nifty index price source
 - [ ] Confirm Gold INR price source
 - [ ] Establish API connections for all sources
@@ -854,7 +837,7 @@ Before production deployment:
 
 | Source | Contingency Plan |
 |--------|-----------------|
-| Brent Crude | Use Week 1 average or previous day's price |
+| USOIL | Use previous trading day's price |
 | Nifty Price | Hold position, rebalance when data available |
 | Gold INR | Use spot price from IBJA if ETF price unavailable |
 | FII Data | Use previous month's data with lag flag |
