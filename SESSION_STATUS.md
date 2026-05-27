@@ -1,12 +1,12 @@
 # Current Session Status
 
-**Last Updated**: May 26, 2026
+**Last Updated**: May 27, 2026
 **Branch**: `ravi-UAT` (synced with `origin/ravi-UAT`)
 **Latest commits**:
+- `11fb86e` — Switch R3 data source from Brent to USOIL (WTI, YFinance CL=F)
+- `fa6b93b` — Codebase cleanup — remove dead code, stale docs, legacy directories
+- `e6c7bba` — Wire FII collector to NSDL monthly CSV — drop DII and nsefin
 - `4fe04f1` — Remove DII clause from R7 — FII-only selling signal
-- `1651918` — Update SESSION_STATUS.md to reflect completed CPI and RBI scrapers
-- `ed359b6` — Replace FRED/hardcoded CPI with real MOSPI data via rateinflation.com
-- `85579da` — Replace synthetic RBI balance sheet with real WSS scraper data
 
 ---
 
@@ -14,7 +14,8 @@
 
 User mandate: **"no synthetic data, get real data from free sources"**
 
-All data sources are now real. DII removed from the algorithm entirely — R7 is now FII-only. Three scrapers built this session.
+All 10 parameters now have real data sources. DII removed from algo (R7 is FII-only).
+Codebase cleaned — dead code, stale docs, and legacy directories deleted.
 
 ---
 
@@ -26,9 +27,9 @@ All data sources are now real. DII removed from the algorithm entirely — R7 is
 | 2 | USDINR | ✅ REAL | YFinance | Live daily |
 | 3 | Gold INR | ✅ REAL | YFinance | Live daily |
 | 4 | Gold USD | ✅ REAL | YFinance | Live daily |
-| 5 | Brent Crude | ✅ REAL | YFinance | Live daily |
+| 5 | USOIL (WTI) | ✅ REAL | YFinance CL=F | 1,609 days Jan 2020–May 2026, current to prev trading day |
 | 6 | NiftyBees | ✅ REAL | YFinance | Live daily |
-| 7 | CPI | ✅ REAL | MOSPI via rateinflation.com | 160 months Jan 2013–Apr 2026, base 2024=100, verified vs PIB press releases |
+| 7 | CPI | ✅ REAL | MOSPI via rateinflation.com | 160 months Jan 2013–Apr 2026, base 2024=100 |
 | 8 | Repo Rate | ✅ REAL + forward-fill | RBI MPC decisions | 39 real + legitimate forward-fill |
 | 9 | FII (FPI Equity) | ✅ REAL | NSDL ASP.NET scraper | 77 months Jan 2020–May 2026 |
 | 10 | ~~DII~~ | ✅ REMOVED | — | R7 redesigned as FII-only signal; DII dropped from algo |
@@ -36,26 +37,46 @@ All data sources are now real. DII removed from the algorithm entirely — R7 is
 
 ---
 
-## Scrapers Built This Session
+## Active Collectors
 
-### 1. NSDL FPI Scraper (`nsdl_fpi_scraper.py`) — commit `dee07ad`
-- ASP.NET VIEWSTATE postback to NSDL Yearwise report
-- 77 months: Jan 2020 → May 2026
-- Output: `src/data_collection/input/fii_nsdl_monthly.csv`
+| Collector | File | Data File |
+|---|---|---|
+| YFinanceCollector | `yfinance_collector.py` | live fetch |
+| CPICollector | `cpi_collector.py` | `cpi_combined.csv` |
+| RepoRateCollector | `repo_rate_collector.py` | hardcoded MPC decisions |
+| FIIDIICollector | `fii_dii_collector.py` | `fii_nsdl_monthly.csv` |
+| RBIBalanceSheetCollector | `rbi_balance_sheet_collector.py` | `rbi_wss_monthly.csv` |
+| USOILCollector | `usoil_collector.py` | `usoil_daily.csv` |
 
-### 2. RBI WSS Scraper (`rbi_wss_scraper.py`) — commit `85579da`
-- `curl_cffi` Chrome TLS impersonation bypasses F5 bot detection on POST
-- Lists 465 `1T_` XLSX URLs; downloads each with `Referer: https://www.rbi.org.in/`
-- 331 weekly rows, aggregated to 77 monthly rows
-- Output: `src/data_collection/input/rbi_wss_weekly.csv` + `rbi_wss_monthly.csv`
-- Collector updated: `rbi_balance_sheet_collector.py` points to `rbi_wss_monthly.csv`
+---
 
-### 3. CPI MOSPI Scraper (`cpi_mospi_scraper.py`) — commit `ed359b6`
-- Scrapes rateinflation.com (MOSPI data, base 2024=100)
-- Verified: Apr 2026 = 105.12 matches PIB official press release exactly
-- 160 months: Jan 2013 → Apr 2026 (updates 12th of each month)
-- Output: `src/data_collection/input/cpi_combined.csv` (replaces FRED + hardcoded data)
-- Collector updated: `cpi_collector.py` — FRED fallback removed
+## Scrapers (Run to Refresh Data)
+
+```bash
+# Refresh CPI (run on or after 12th of month)
+python3 -m src.data_collection.collectors.cpi_mospi_scraper
+
+# Refresh FII (monthly)
+python3 -m src.data_collection.collectors.nsdl_fpi_scraper
+
+# Refresh RBI Balance Sheet (takes ~3 min)
+python3 -m src.data_collection.collectors.rbi_wss_scraper
+
+# Refresh USOIL (daily)
+python3 -m src.data_collection.collectors.usoil_scraper
+```
+
+---
+
+## R3 Status (as of May 27, 2026)
+
+| Metric | Value |
+|---|---|
+| WTI today | $92.85/bbl |
+| 12m avg | $70.66/bbl |
+| Ratio | 1.31 |
+| Status | **CLEAR** |
+| Trigger price | $127.19/bbl |
 
 ---
 
@@ -65,72 +86,14 @@ All data sources are now real. DII removed from the algorithm entirely — R7 is
 - **F5 bot detection bypass**: `curl_cffi` with `impersonate='chrome120'` works on RBI's WSS portal POST.
 - **rbidocs.rbi.org.in TLS reset**: Fixed by adding `Referer: https://www.rbi.org.in/` to download requests.
 - **rateinflation.com**: Simple HTML table, `pd.read_html()`, no bot detection.
-
----
-
-## CPI Source Investigation Summary
-
-Sources investigated for fresh India CPI (Apr 2025+):
-| Source | Result |
-|---|---|
-| `cpi.mospi.gov.in` | HTTP 500 on all data pages — server broken |
-| FRED (`INDCPIALLMINMEI`) | Real but lags ~4 months; different base year |
-| RBI Handbook Table 162 | Only covers 2021-22 onwards; base 2012=100 |
-| IMF SDMX API | Returns nulls for India |
-| World Bank API | Annual only |
-| **rateinflation.com** | ✅ Jan 2013–current, MOSPI-sourced, base 2024=100, verified |
+- **YFinance**: All market data (equities, FX, commodities) via single consistent interface.
 
 ---
 
 ## Up Next (Priority Order)
 
-1. **Wire FII collector** — update `fii_dii_collector.py` to read from `fii_nsdl_monthly.csv`
-2. **Re-run monthly aggregation** — verify all months complete with real data
-3. **Implement 3 pipeline types** from requirements doc:
+1. **Re-run monthly aggregation** — verify all months complete with real data
+2. **Implement 3 pipeline types** from requirements doc:
    - `python -m src.data_collection.refresh --param <name>`
    - `python -m src.data_collection.refresh --all`
    - `python -m src.data_collection.upsert --param <name>`
-
----
-
-## How to Refresh Data (Run Order)
-
-```bash
-# Refresh CPI (run on or after 12th of month)
-python3 -m src.data_collection.collectors.cpi_mospi_scraper
-
-# Refresh FII
-python3 -m src.data_collection.collectors.nsdl_fpi_scraper
-
-# Refresh RBI Balance Sheet (takes ~3 min, downloads 331 XLSXs)
-python3 -m src.data_collection.collectors.rbi_wss_scraper
-```
-
----
-
-## Files Created/Modified This Session
-
-**New scrapers**:
-- `src/data_collection/collectors/rbi_wss_scraper.py`
-- `src/data_collection/collectors/cpi_mospi_scraper.py` (rewritten)
-
-**Updated collectors**:
-- `src/data_collection/collectors/rbi_balance_sheet_collector.py`
-- `src/data_collection/collectors/cpi_collector.py`
-
-**New/updated CSVs**:
-- `src/data_collection/input/rbi_wss_weekly.csv` (331 rows)
-- `src/data_collection/input/rbi_wss_monthly.csv` (77 rows)
-- `src/data_collection/input/cpi_combined.csv` (160 rows — replaces FRED+hardcoded)
-
-**Algorithm / doc changes** (commit `4fe04f1`):
-- `docs/plan/Algorithms.md` — R7 rewritten as FII-only; DII removed from trigger, yellow alert, exit conditions, weekly decision tree, data sources table
-- `docs/plan/Implementation_Requirements.md` — DII removed from data feed spec, DB schema (`fii_dii_activity` → `fii_activity`, `dii_net` column dropped), calculations list, validation, contingency table
-- `docs/plan/Decision_Algo_DB_Project_May2026.docx` — same changes applied to all R7 tables
-
-**Stale docs (safe to delete)**:
-- `PHASE2_SCRAPER_STATUS.md`
-- `PHASE3_STATUS.md`
-- `DATA_SOURCES_STATUS.md`
-- `FII_DII_USER_ACTION.md`
-- `CPI_USER_ACTION.md`
