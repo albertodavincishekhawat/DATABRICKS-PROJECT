@@ -2,7 +2,7 @@
 
 **Project**: Decision Algo DB Project  
 **Version**: May 2026 (Final)  
-**Owner**: Everest Fund Asset Management  
+**Owner**: Ravi Singh Shekhawat  
 **Rules Implemented**: R1, R2, R3, R5, R7
 
 ---
@@ -387,7 +387,7 @@ gold_inr_6m_return = (gold_inr_today - gold_inr_6m_ago) / gold_inr_6m_ago * 100
 differential = nifty_6m_return - gold_inr_6m_return
 ```
 
-**Data Sources**: PENDING - Gold INR and Nifty primary sources to be identified and tested
+**Data Sources**: YFinance `^NSEI` (Nifty 50), YFinance `GOLD` (Gold INR) — both confirmed, in `yfinance_daily.csv`
 
 ### Step 2: Determine State
 
@@ -473,8 +473,8 @@ If holiday: +1 day, repeat until trading day found
 | RBI Balance Sheet | RBI Weekly Statistical Supplement (WSS) Table 1 | ✓ Confirmed |
 | FII Activity | NSDL FPI Yearwise report (fpi.nsdl.co.in) | ✓ Confirmed |
 | USOIL (WTI) Price | YFinance CL=F | ✓ Confirmed |
-| Gold INR Price | PENDING | ⏳ To be identified and tested |
-| Nifty Index | PENDING | ⏳ To be identified and tested |
+| Gold INR Price | YFinance `GOLD` | ✓ Confirmed — `yfinance_daily.csv` |
+| Nifty Index | YFinance `^NSEI` | ✓ Confirmed — `yfinance_daily.csv` |
 
 ---
 

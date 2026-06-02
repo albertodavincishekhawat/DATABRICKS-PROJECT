@@ -1,171 +1,108 @@
 """
 YFinance Collector
 
-Fetches daily data from YFinance and provides monthly aggregation.
-Handles 6 sources: NIFTY50, USDINR, GOLD_INR, GOLD_USD, BRENT_CRUDE, NIFTYBEES
+Reads daily market price data from the CSV produced by yfinance_scraper.py.
+Handles 5 parameters: NIFTY50, USDINR, GOLD_INR, GOLD_USD, NIFTYBEES
+
+Source  : src/data_collection/input/yfinance_daily.csv
+Refresh : python3 -m src.data_collection.collectors.yfinance_scraper
 """
 
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from pathlib import Path
+from typing import Any, Dict, Optional
+
 import pandas as pd
 import logging
+
 from .base_collector import BaseCollector
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-try:
-    import yfinance as yf
-    YFINANCE_AVAILABLE = True
-except ImportError:
-    YFINANCE_AVAILABLE = False
+CSV_PATH = Path("src/data_collection/input/yfinance_daily.csv")
+
+VALID_SOURCES = {"NIFTY50", "USDINR", "GOLD_INR", "GOLD_USD", "NIFTYBEES"}
 
 
 class YFinanceCollector(BaseCollector):
     """
-    Collect daily price data from YFinance.
+    Collect daily market price data from the YFinance CSV.
 
-    Frequency: Daily trading days
-    Aggregation: Month-end close price (or last trading day if month-end is weekend)
+    Frequency: Daily (trading days only)
+    Aggregation: Close price on or before sync_date (searches back up to 5 days for weekends/holidays)
     """
 
-    TICKERS = {
-        'NIFTY50': '^NSEI',
-        'USDINR': 'USDINR=X',
-        'GOLD_INR': 'GOLD',
-        'GOLD_USD': 'GC=F',
-        'BRENT_CRUDE': 'BZ=F',
-        'NIFTYBEES': 'NIFTYBEES.NS',
-    }
-
     def __init__(self, source_name: str):
-        """
-        Initialize YFinance collector.
+        if source_name not in VALID_SOURCES:
+            raise ValueError(f"Unknown source: {source_name}. Valid: {VALID_SOURCES}")
 
-        Args:
-            source_name: One of NIFTY50, USDINR, GOLD_INR, GOLD_USD, BRENT_CRUDE, NIFTYBEES
-        """
-        if source_name not in self.TICKERS:
-            raise ValueError(f"Unknown source: {source_name}")
+        super().__init__(source_name, frequency="daily")
+        self.data: Optional[pd.DataFrame] = None
+        self._load_data()
 
-        super().__init__(source_name, frequency='daily')
-        self.ticker = self.TICKERS[source_name]
-        self.data = None
-
-        # Fetch data on initialization
-        self._fetch_data()
-
-    def _fetch_data(self):
-        """Fetch historical data from YFinance."""
-        if not YFINANCE_AVAILABLE:
-            logger.warning(f"[{self.name}] YFinance not installed")
+    def _load_data(self) -> None:
+        if not CSV_PATH.exists():
+            logger.warning(
+                f"[{self.name}] CSV not found: {CSV_PATH}. "
+                "Run yfinance_scraper.py to generate it."
+            )
             return
 
-        try:
-            self.log_status(f"Fetching data for {self.ticker}...")
-            self.data = yf.download(
-                self.ticker,
-                start='2020-01-01',
-                end='2026-04-30',
-                progress=False
-            )
+        df = pd.read_csv(CSV_PATH, parse_dates=["Date"])
+        df = df.sort_values("Date").reset_index(drop=True)
+        df = df.set_index("Date")
 
-            if self.data.empty:
-                logger.warning(f"[{self.name}] No data returned for {self.ticker}")
-            else:
-                logger.info(f"[{self.name}] Loaded {len(self.data)} trading days")
+        if self.name not in df.columns:
+            logger.error(f"[{self.name}] Column not found in {CSV_PATH}")
+            return
 
-        except Exception as e:
-            logger.error(f"[{self.name}] Error fetching {self.ticker}: {str(e)[:100]}")
-            self.data = None
+        self.data = df[[self.name]].dropna()
+        logger.info(f"[{self.name}] Loaded {len(self.data)} trading days from {CSV_PATH}")
+
+    # ── BaseCollector abstract methods ────────────────────────────────────────
 
     def has_data_on_date(self, date: datetime) -> bool:
-        """Check if data exists on a specific date."""
         if self.data is None or self.data.empty:
             return False
-        import pandas as pd
         return pd.Timestamp(date.date()) in self.data.index
 
     def find_data_on_date(self, date: datetime) -> Optional[datetime]:
-        """
-        Find data on or before this date.
-
-        YFinance only has trading days, so search backward for last trading day.
-        """
+        """Return most recent trading day on or before date (searches back up to 5 days)."""
         if self.data is None or self.data.empty:
             return None
 
-        import pandas as pd
-        # Search backward up to 5 days for last trading day
         for offset in range(0, 6):
             candidate = date - timedelta(days=offset)
-            ts = pd.Timestamp(candidate.date())
-            if ts in self.data.index:
+            if pd.Timestamp(candidate.date()) in self.data.index:
                 return candidate
 
         return None
 
     def get_value(self, data_date: datetime) -> Optional[float]:
-        """Get close price for a specific date."""
         if self.data is None or self.data.empty:
             return None
 
-        try:
-            import pandas as pd
-            ts = pd.Timestamp(data_date.date())
-            if ts in self.data.index:
-                return float(self.data.loc[ts, 'Close'])
-        except (KeyError, Exception):
-            return None
-
+        ts = pd.Timestamp(data_date.date())
+        if ts in self.data.index:
+            return float(self.data.loc[ts, self.name])
         return None
 
-    def aggregate_to_month(
-        self,
-        month: str,
-        sync_date: datetime
-    ) -> Dict[str, Any]:
-        """
-        Aggregate to monthly value (month-end close price).
-
-        Args:
-            month: Month string (YYYY-MM)
-            sync_date: The synchronized date for this month
-
-        Returns:
-            Dict with {value, data_quality, source_date}
-        """
-        # Find last trading day on or before sync_date
+    def aggregate_to_month(self, month: str, sync_date: datetime) -> Dict[str, Any]:
         data_date = self.find_data_on_date(sync_date)
 
         if data_date is None:
-            return {
-                'value': None,
-                'data_quality': 'MISSING',
-                'source_date': None
-            }
+            return {"value": None, "data_quality": "MISSING", "source_date": None}
 
-        # Get close price
         close_price = self.get_value(data_date)
 
         if close_price is None:
-            return {
-                'value': None,
-                'data_quality': 'MISSING',
-                'source_date': None
-            }
+            return {"value": None, "data_quality": "MISSING", "source_date": None}
 
-        # Determine quality based on how much we had to shift
         days_shifted = (sync_date.date() - data_date.date()).days
-        if days_shifted == 0:
-            quality = 'OK'
-        elif days_shifted <= 2:
-            quality = f'SHIFTED_{days_shifted}d'
-        else:
-            quality = f'SHIFTED_{days_shifted}d'
+        quality = "OK" if days_shifted == 0 else f"SHIFTED_{days_shifted}d"
 
         return {
-            'value': close_price,
-            'data_quality': quality,
-            'source_date': data_date.strftime('%Y-%m-%d')
+            "value": close_price,
+            "data_quality": quality,
+            "source_date": data_date.strftime("%Y-%m-%d"),
         }
